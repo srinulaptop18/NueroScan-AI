@@ -1111,6 +1111,7 @@ with tab_about:
         '<div style="font-size:4rem;margin-bottom:1.2rem;">🏛</div>'
     )
 
+    # ── COLLEGE HERO BANNER ───────────────────────────────────────────────────
     st.markdown(
         f'<div style="background:linear-gradient(160deg,#fdf3dc 0%,#fdf8f0 50%,#fce8b0 100%);'
         f'border:1px solid rgba(184,134,11,0.28);border-radius:16px;'
@@ -1118,13 +1119,20 @@ with tab_about:
         f'position:relative;overflow:hidden;">'
         f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
         f'background:linear-gradient(90deg,transparent,#c9a84c,#f0d070,#c9a84c,transparent);"></div>'
+        f'<div style="position:absolute;inset:0;opacity:0.03;font-size:8rem;display:flex;'
+        f'align-items:center;justify-content:center;color:#b8860b;font-family:Cinzel,serif;'
+        f'pointer-events:none;letter-spacing:20px;">✦BVC✦</div>'
         + clg_html +
-        f'<div style="font-family:Cinzel,serif;font-size:1.9rem;font-weight:900;'
-        f'color:#2c1a00;letter-spacing:4px;margin-bottom:.5rem;">'
+        f'<div style="font-family:Cinzel,serif;font-size:1.9rem;font-weight:900;color:#2c1a00;'
+        f'letter-spacing:4px;margin-bottom:.5rem;text-shadow:0 2px 8px rgba(184,134,11,0.12);">'
         f'BVC College of Engineering</div>'
-        f'<div style="font-family:Cormorant Garamond,serif;font-style:italic;'
-        f'font-size:1.05rem;color:#b8860b;letter-spacing:3px;margin-bottom:.8rem;">'
-        f'Palacharla, Andhra Pradesh</div>'
+        f'<div style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:1.05rem;'
+        f'color:#b8860b;letter-spacing:3px;margin-bottom:.8rem;">Palacharla, Andhra Pradesh</div>'
+        f'<div style="display:flex;align-items:center;gap:1rem;justify-content:center;margin-bottom:1rem;">'
+        f'<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c);"></div>'
+        f'<span style="color:#b8860b;font-size:.8rem;letter-spacing:5px;">✦</span>'
+        f'<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,#c9a84c,transparent);"></div>'
+        f'</div>'
         f'<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.2rem;">'
         f'<span style="background:rgba(184,134,11,0.1);border:1px solid rgba(184,134,11,0.3);'
         f'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
@@ -1139,15 +1147,144 @@ with tab_about:
         f'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
         f'color:#7a1a1a;letter-spacing:1.5px;font-weight:600;">📜 Affiliated to JNTUK</span>'
         f'</div>'
-        f'<div style="font-family:EB Garamond,serif;font-size:1rem;color:#7a5a1a;'
-        f'line-height:1.8;max-width:680px;margin:0 auto;">'
+        f'<div style="font-family:EB Garamond,serif;font-size:1rem;color:#7a5a1a;line-height:1.8;'
+        f'max-width:680px;margin:0 auto;">'
         f'BVC College of Engineering is a premier autonomous institution in Andhra Pradesh, '
-        f'recognized for academic excellence and cutting-edge research in technical education.'
-        f'</div></div>',
+        f'recognized for academic excellence and cutting-edge research. With state-of-the-art '
+        f'laboratories, experienced faculty, and a legacy of producing distinguished engineers, '
+        f'the institution stands as a beacon of quality technical education in the region.'
+        f'</div>'
+        f'<div style="position:absolute;bottom:0;left:0;right:0;height:1px;'
+        f'background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3),transparent);"></div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="sec-head">✦ Model Performance (5-Fold Cross-Validation)</div>', unsafe_allow_html=True)
+    # ── INSTITUTE STATS ───────────────────────────────────────────────────────
+    st.markdown('<div class="sec-head">✦ Institute at a Glance</div>', unsafe_allow_html=True)
+    s1, s2, s3, s4, s5 = st.columns(5)
+    for col, num, label, icon in [
+        (s1, '20+',  'Years of Excellence', '🏆'),
+        (s2, '3000+','Students Enrolled',   '👨‍🎓'),
+        (s3, '150+', 'Faculty Members',     '👨‍🏫'),
+        (s4, '10+',  'Departments',         '🏛'),
+        (s5, '95%',  'Placement Rate',      '💼'),
+    ]:
+        with col:
+            st.markdown(
+                f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
+                f'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
+                f'padding:1.2rem .8rem;text-align:center;'
+                f'box-shadow:0 2px 12px rgba(184,134,11,0.08);">'
+                f'<div style="font-size:1.6rem;margin-bottom:.3rem;">{icon}</div>'
+                f'<div style="font-family:Playfair Display,serif;font-size:1.6rem;'
+                f'font-weight:700;color:#9a6e00;line-height:1;">{num}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
+                f'letter-spacing:1px;text-transform:uppercase;margin-top:.3rem;">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    # ── PROJECT OVERVIEW + TECH STACK ────────────────────────────────────────
+    st.markdown('<div class="sec-head" style="margin-top:2.2rem;">✦ About the Project</div>', unsafe_allow_html=True)
+    pc1, pc2 = st.columns([3, 2], gap='large')
+    with pc1:
+        st.markdown(
+            '<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
+            'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
+            'padding:2rem;box-shadow:0 2px 16px rgba(184,134,11,0.08);">'
+            '<div style="font-family:Cinzel,serif;font-size:.68rem;color:#b8860b;'
+            'letter-spacing:2px;text-transform:uppercase;margin-bottom:.8rem;">⚗ Project Overview</div>'
+            '<div style="font-family:Playfair Display,serif;font-size:1.4rem;font-weight:700;'
+            'color:#2c1a00;margin-bottom:.9rem;line-height:1.3;">'
+            "NeuroScan AI — Early Parkinson's Detection via Deep Learning</div>"
+            '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#5a3a0a;'
+            'line-height:1.85;margin-bottom:1.2rem;">'
+            'NeuroScan AI is a B.Tech final-year capstone project developed at the Department of ECE, '
+            'BVC College of Engineering. It applies a hybrid '
+            '<strong style="color:#8a5e00;">ResNet50 + Vision Transformer (ViT)</strong> and '
+            '<strong style="color:#8a5e00;">EfficientNet-B4 + ViT</strong> cross-attention architecture '
+            "to classify brain MRI scans and detect early signs of Parkinson's Disease with "
+            'clinical-grade accuracy. The system integrates '
+            '<strong style="color:#8a5e00;">Grad-CAM explainability</strong> '
+            'to highlight regions of neural attention, bridging the gap between AI inference '
+            'and medical interpretability. Validated with <strong style="color:#8a5e00;">5-fold '
+            'cross-validation</strong> achieving 100% accuracy on ResNet50, EfficientNet-B4 and ViT-B16.'
+            '</div>'
+            '<div style="display:flex;gap:.7rem;flex-wrap:wrap;">'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">🧠 Deep Learning</span>'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">🔬 Medical Imaging</span>'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">📊 Explainable AI</span>'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">⚡ Computer Vision</span>'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">✦ 5-Fold CV Validated</span>'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+    with pc2:
+        st.markdown(
+            '<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
+            'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
+            'padding:2rem;box-shadow:0 2px 16px rgba(184,134,11,0.08);">'
+            '<div style="font-family:Cinzel,serif;font-size:.68rem;color:#b8860b;'
+            'letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem;">⚙ Technology Stack</div>'
+            '<div style="display:flex;flex-direction:column;gap:.7rem;">'
+
+            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.3rem;">🤖</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">AI Framework</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'PyTorch · ResNet50 + ViT · EfficientNet+ViT</div></div></div>'
+
+            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.3rem;">🔥</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Explainability</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'Gradient-weighted CAM (Grad-CAM)</div></div></div>'
+
+            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.3rem;">📦</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Dataset</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'irfansheriff/parkinsons-brain-mri · 831 MRI scans</div></div></div>'
+
+            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.3rem;">🖥</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">User Interface</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'Streamlit · Custom Royal CSS</div></div></div>'
+
+            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.3rem;">📄</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Reporting</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'ReportLab PDF · Pandas · CSV Export</div></div></div>'
+
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── MODEL PERFORMANCE ─────────────────────────────────────────────────────
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Model Performance (5-Fold Cross-Validation)</div>', unsafe_allow_html=True)
     pm1, pm2, pm3, pm4, pm5, pm6 = st.columns(6)
     for col, val, lbl, color in [
         (pm1, '100%',   'ResNet50',      '#7a4f00'),
@@ -1170,6 +1307,85 @@ with tab_about:
                 unsafe_allow_html=True,
             )
 
+    # ── RESULT IMAGES FROM DRIVE ──────────────────────────────────────────────
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Training Results & Visualisations</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-family:EB Garamond,serif;font-size:1rem;color:#a89060;'
+        'margin-bottom:1.2rem;line-height:1.7;">'
+        'All result charts are loaded directly from Google Drive. '
+        'These were generated during model training on the Parkinson\'s Brain MRI dataset.</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Drive direct-download URL helper
+    def gdrive_img_url(file_id):
+        return f"https://drive.google.com/uc?export=download&id={file_id}"
+
+    # ── Replace these IDs with your actual file IDs from Drive ───────────────
+    # To get a file ID: open the file in Drive → Share → Copy link
+    # The ID is the long string between /d/ and /view in the URL
+    RESULT_IMAGES = {
+        'Class Distribution':    'REPLACE_WITH_eda_distribution_FILE_ID',
+        'Sample Grid':           'REPLACE_WITH_sample_grid_FILE_ID',
+        'Training Curves':       'REPLACE_WITH_training_curves_FILE_ID',
+        'Confusion Matrices':    'REPLACE_WITH_confusion_matrices_FILE_ID',
+        'ROC Curves':            'REPLACE_WITH_roc_curves_FILE_ID',
+        'GradCAM — All Models':  'REPLACE_WITH_gradcam_all_models_FILE_ID',
+        'Model Comparison':      'REPLACE_WITH_model_comparison_FILE_ID',
+    }
+
+    @st.cache_data(show_spinner=False)
+    def fetch_drive_image(file_id):
+        import requests
+        try:
+            url  = f"https://drive.google.com/uc?export=download&id={file_id}"
+            resp = requests.get(url, timeout=15)
+            if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type',''):
+                return resp.content
+        except Exception:
+            pass
+        return None
+
+    # Display in a 2-column grid
+    img_items = list(RESULT_IMAGES.items())
+    for i in range(0, len(img_items), 2):
+        cols = st.columns(2, gap='large')
+        for j, col in enumerate(cols):
+            if i + j < len(img_items):
+                name, fid = img_items[i + j]
+                with col:
+                    st.markdown(
+                        f'<div class="card" style="padding:1rem;">'
+                        f'<div style="font-family:Cinzel,serif;font-size:.65rem;'
+                        f'color:#b8860b;letter-spacing:2px;text-transform:uppercase;'
+                        f'margin-bottom:.8rem;text-align:center;">◈ {name}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if 'REPLACE_WITH' in fid:
+                        st.info(f'Add Drive file ID for: {name}')
+                    else:
+                        img_data = fetch_drive_image(fid)
+                        if img_data:
+                            st.image(img_data, use_column_width=True)
+                        else:
+                            st.warning(f'Could not load: {name}')
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
+        'border-radius:10px;padding:1rem 1.5rem;margin-top:.5rem;">'
+        '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
+        'letter-spacing:1.5px;text-transform:uppercase;margin-bottom:.4rem;">ℹ How to add Drive image IDs</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#7a5a1a;line-height:1.8;">'
+        '1. Open your result image in Google Drive<br>'
+        '2. Click Share → Change to "Anyone with the link"<br>'
+        '3. Copy the link — it looks like: https://drive.google.com/file/d/<strong>FILE_ID</strong>/view<br>'
+        '4. Paste the FILE_ID into the RESULT_IMAGES dict in app.py'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── TEAM ─────────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Team</div>', unsafe_allow_html=True)
     team = [
         {'roll': '236M5A0408', 'name': 'G Srinivasu',      'icon': '👨‍💻', 'role': 'AI Model & Backend'},
@@ -1195,6 +1411,7 @@ with tab_about:
                 unsafe_allow_html=True,
             )
 
+    # ── GUIDANCE ──────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Guidance</div>', unsafe_allow_html=True)
     g1, g2, g3 = st.columns(3, gap='medium')
     for col, role_label, role_color, icon, name, tags in [
@@ -1219,7 +1436,7 @@ with tab_about:
                 f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
                 f'border:1px solid rgba(184,134,11,0.2);border-radius:14px;'
                 f'padding:2rem 1.6rem;text-align:center;position:relative;'
-                f'box-shadow:0 3px 18px rgba(184,134,11,0.08);">'
+                f'box-shadow:0 3px 18px rgba(184,134,11,0.08);height:100%;">'
                 f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
                 f'background:linear-gradient(90deg,transparent,{role_color},transparent);'
                 f'border-radius:14px 14px 0 0;"></div>'
@@ -1235,6 +1452,7 @@ with tab_about:
                 unsafe_allow_html=True,
             )
 
+    # ── DISCLAIMER ────────────────────────────────────────────────────────────
     st.markdown('<br>', unsafe_allow_html=True)
     st.markdown(
         '<div style="background:linear-gradient(135deg,rgba(192,57,43,0.05),'
