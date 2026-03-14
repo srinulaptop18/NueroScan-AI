@@ -1324,26 +1324,35 @@ with tab_about:
     # ── Replace these IDs with your actual file IDs from Drive ───────────────
     # To get a file ID: open the file in Drive → Share → Copy link
     # The ID is the long string between /d/ and /view in the URL
+    # File order from Drive folder (alphabetical):
+    # 1=confusion_matrices  2=eda_distribution  3=gradcam_all_models
+    # 4=model_comparison    5=roc_curves        6=sample_grid   7=training_curves
     RESULT_IMAGES = {
-        'Class Distribution':    'REPLACE_WITH_eda_distribution_FILE_ID',
-        'Sample Grid':           'REPLACE_WITH_sample_grid_FILE_ID',
-        'Training Curves':       'REPLACE_WITH_training_curves_FILE_ID',
-        'Confusion Matrices':    'REPLACE_WITH_confusion_matrices_FILE_ID',
-        'ROC Curves':            'REPLACE_WITH_roc_curves_FILE_ID',
-        'GradCAM — All Models':  'REPLACE_WITH_gradcam_all_models_FILE_ID',
-        'Model Comparison':      'REPLACE_WITH_model_comparison_FILE_ID',
+        'Confusion Matrices':   '1qQgCIXUAvBFIqKOg31E2RKZqpMX3bfHn',
+        'Class Distribution':   '1c10Rb-uQU8_Wtu59Q48P-E20IVfHDIwx',
+        'GradCAM — All Models': '1uKot-ObwVs5VoqFXwxzWOUkEuV4pLr--',
+        'Model Comparison':     '1pSapafZeP9r-gRs-dFsHOLgcJOddSFiz',
+        'ROC Curves':           '1X78209LQ7PTwbu12lC8jWou9DqmF5RGp',
+        'Sample Grid':          '1J6li-fQx28HqKuRclAlNHyUSzLOQ6Vvp',
+        'Training Curves':      '13HIiDGEy8jEZgYis3vTzqctYtWlpKZ4N',
     }
 
     @st.cache_data(show_spinner=False)
     def fetch_drive_image(file_id):
         import requests
-        try:
-            url  = f"https://drive.google.com/uc?export=download&id={file_id}"
-            resp = requests.get(url, timeout=15)
-            if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type',''):
-                return resp.content
-        except Exception:
-            pass
+        # Try thumbnail URL first (bypasses virus-scan redirect for images)
+        for url in [
+            f"https://drive.google.com/thumbnail?id={file_id}&sz=w1200",
+            f"https://lh3.googleusercontent.com/d/{file_id}",
+            f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t",
+        ]:
+            try:
+                resp = requests.get(url, timeout=15, allow_redirects=True)
+                ct   = resp.headers.get('Content-Type', '')
+                if resp.status_code == 200 and 'image' in ct:
+                    return resp.content
+            except Exception:
+                continue
         return None
 
     # Display in a 2-column grid
@@ -1371,19 +1380,7 @@ with tab_about:
                             st.warning(f'Could not load: {name}')
                     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown(
-        '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
-        'border-radius:10px;padding:1rem 1.5rem;margin-top:.5rem;">'
-        '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
-        'letter-spacing:1.5px;text-transform:uppercase;margin-bottom:.4rem;">ℹ How to add Drive image IDs</div>'
-        '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#7a5a1a;line-height:1.8;">'
-        '1. Open your result image in Google Drive<br>'
-        '2. Click Share → Change to "Anyone with the link"<br>'
-        '3. Copy the link — it looks like: https://drive.google.com/file/d/<strong>FILE_ID</strong>/view<br>'
-        '4. Paste the FILE_ID into the RESULT_IMAGES dict in app.py'
-        '</div></div>',
-        unsafe_allow_html=True,
-    )
+
 
     # ── TEAM ─────────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Team</div>', unsafe_allow_html=True)
