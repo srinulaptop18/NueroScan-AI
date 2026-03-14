@@ -358,40 +358,46 @@ def predict(model, device, classes, mn, pil_image):
 
     model.eval()
     with torch.no_grad():
-        out        = model(img_tensor)
-        probs      = F.softmax(out, dim=1)
-        conf, pred = torch.max(probs, 1)
-        class_idx  = pred.item()
+        out      = model(img_tensor)
+        probs    = F.softmax(out, dim=1)
+        probs_np = probs[0].cpu().numpy()
+        class_idx      = int(probs_np.argmax())
+        confidence_pct = float(probs_np[class_idx] * 100)
 
-    # GradCAM — run separately after inference, fresh tensor
+    # ── Dynamically find Normal vs Parkinson index ────────────────────────
+    # Works regardless of class order saved in the checkpoint
+    normal_idx = parkinson_idx = None
+    for i, c in enumerate(classes):
+        cl = c.lower()
+        if 'normal' in cl or 'healthy' in cl:
+            normal_idx = i
+        if 'parkinson' in cl:
+            parkinson_idx = i
+    if normal_idx    is None: normal_idx    = 0
+    if parkinson_idx is None: parkinson_idx = 1 if len(classes) > 1 else 0
+
+    normal_prob    = float(probs_np[normal_idx]    * 100)
+    parkinson_prob = float(probs_np[parkinson_idx] * 100)
+    is_parkinson   = (class_idx == parkinson_idx)
+    risk = ('High' if confidence_pct >= 85 else 'Moderate') if is_parkinson else 'Low'
+
+    # ── GradCAM — fresh tensor, separate from inference ───────────────────
     overlay = heatmap = None
     gc_layer = get_gradcam_layer(model, mn)
-    if gc_layer is not None:
+    if gc_layer is not None and mn != 'ViT-B16':
         try:
-            # ViT norm layers don't produce 2D spatial grads — skip
-            if mn == 'ViT-B16':
-                pass
-            else:
-                gc      = GradCAM(model, gc_layer)
-                fresh   = TRANSFORM(img_rgb).unsqueeze(0)   # fresh tensor, no grad history
-                cam_map = gc.generate(fresh, class_idx, device)
-                if cam_map.max() > 0:
-                    overlay, heatmap = apply_colormap(img_rgb, cam_map)
+            gc      = GradCAM(model, gc_layer)
+            fresh   = TRANSFORM(img_rgb).unsqueeze(0)
+            cam_map = gc.generate(fresh, class_idx, device)
+            if cam_map is not None and cam_map.max() > 0:
+                overlay, heatmap = apply_colormap(img_rgb, cam_map)
         except Exception:
             pass
-
-    confidence_pct = float(conf.item() * 100)
-    normal_prob    = float(probs[0][0].item() * 100)
-    parkinson_prob = float(probs[0][1].item() * 100)
-
-    if class_idx == 0:
-        risk = 'Low'
-    else:
-        risk = 'High' if confidence_pct >= 85 else 'Moderate'
 
     return {
         'prediction':     classes[class_idx],
         'class_idx':      class_idx,
+        'is_parkinson':   is_parkinson,
         'confidence':     confidence_pct,
         'normal_prob':    normal_prob,
         'parkinson_prob': parkinson_prob,
@@ -876,7 +882,7 @@ with tab_scan:
     # ── RESULTS ──────────────────────────────────────────────────────────────
     if st.session_state.prediction_made:
         r         = st.session_state.prediction_result
-        is_normal = r['class_idx'] == 0
+        is_normal = not r.get('is_parkinson', r['class_idx'] == 0)
         diag_cls  = 'diag-normal' if is_normal else 'diag-parkinson'
         risk_cls  = f"risk-{r['risk_level'].lower()}"
 
@@ -1100,7 +1106,7 @@ with tab_batch:
 
         st.markdown('<div class="sec-head">✦ Per-Image Results</div>', unsafe_allow_html=True)
         for r in results:
-            is_n = r['class_idx'] == 0
+            is_n = not r.get('is_parkinson', r['class_idx'] == 0)
             col  = '#4ade80' if is_n else '#f87171'
             icon = '✦' if is_n else '⚠'
             rc1, rc2, rc3, rc4 = st.columns([1, 2, 1, 1])
