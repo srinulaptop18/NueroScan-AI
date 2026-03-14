@@ -192,21 +192,29 @@ def load_model(model_path: str):
 
     # ── Detect checkpoint format ──────────────────────────────────────────
     if isinstance(ck, dict) and 'model_state_dict' in ck:
-        # NEW format saved from notebook
+        # NEW format — full checkpoint saved from training notebook
         state_dict = ck['model_state_dict']
         nc         = ck.get('config', {}).get('num_classes', 2)
         mn         = ck.get('model_name', 'ResNet50')
         bt         = ck.get('backbone_type', None)
-        classes    = ck.get('classes', ['normal', 'parkinson'])
+        # Notebook saves raw folder names e.g. ['normal','parkinson']
+        # Map to display names while PRESERVING index order exactly
+        raw_cls = ck.get('classes', ['normal', 'parkinson'])
+        cls_map = {
+            'normal':               'Normal',
+            'healthy':              'Normal',
+            'parkinson':            "Parkinson\'s Disease",
+            'parkinsons':           "Parkinson\'s Disease",
+            "parkinson\'s disease":"Parkinson\'s Disease",
+        }
+        classes = [cls_map.get(c.lower(), c.title()) for c in raw_cls]
 
     elif isinstance(ck, dict):
-        # OLD format — raw state_dict (new_ntau.pth)
+        # OLD format — raw state_dict only (new_ntau.pth)
         state_dict = ck
         nc         = 2
-        classes    = ['normal', 'parkinson']
         bt         = None
         keys       = list(state_dict.keys())
-        # Detect architecture from key names
         if any('backbone.features' in k for k in keys):
             mn = 'ResNetViT_Legacy'
         elif any('transformer.encoder' in k for k in keys):
@@ -215,12 +223,15 @@ def load_model(model_path: str):
             mn = 'MiniSegNet'
         elif any('fusion.attn' in k for k in keys):
             mn = 'HybridNet_RV'
-        elif any('patch_embed.proj' in k for k in keys) and any('blocks.0' in k for k in keys):
+        elif any('patch_embed.proj' in k for k in keys):
             mn = 'ViT-B16'
         elif any('layer4' in k for k in keys):
             mn = 'ResNet50'
         else:
             mn = 'ResNetViT_Legacy'
+        # Legacy new_ntau.pth: class 0=Normal, class 1=Parkinson's
+        # This matches the original app.py class order
+        classes = ['Normal', "Parkinson\'s Disease"]
     else:
         st.error("Unrecognised checkpoint format.")
         st.stop()
@@ -267,6 +278,10 @@ class GradCAM:
             lambda m, gi, go: setattr(self, '_grads', go[0]))
 
     def generate(self, img_tensor, class_idx, device):
+        # Reset stored grads/acts before each forward pass
+        self._acts  = None
+        self._grads = None
+        self.model.eval()
         img_tensor = img_tensor.clone().to(device).requires_grad_(True)
         with torch.enable_grad():
             out = self.model(img_tensor)
@@ -274,31 +289,48 @@ class GradCAM:
             out[0, class_idx].backward(retain_graph=True)
         if self._grads is None or self._acts is None:
             return np.zeros((224, 224))
-        weights = F.relu(self._grads).mean(dim=[2, 3], keepdim=True)
+        weights = self._grads.mean(dim=[2, 3], keepdim=True)
         cam     = F.relu((weights * self._acts).sum(dim=1, keepdim=True))
-        cam     = F.interpolate(cam, (224, 224), mode='bicubic', align_corners=False)
+        cam     = F.interpolate(cam, (224, 224), mode='bilinear', align_corners=False)
         cam     = cam.squeeze().cpu().detach().numpy()
         lo, hi  = cam.min(), cam.max()
         if hi - lo > 1e-8:
             cam = (cam - lo) / (hi - lo)
         else:
             return np.zeros((224, 224))
-        return np.power(cam, 1.8)
+        return cam
 
 
 def get_gradcam_layer(model, mn):
+    """Returns the target conv layer for GradCAM. Robust to model structure."""
     try:
         if mn == 'ResNetViT_Legacy':
-            return list(model.backbone[-1].children())[-1].conv3
+            # backbone is nn.Sequential of ResNet children[:-2]
+            # last element is layer4, last block is Bottleneck, target conv3
+            layer4     = model.backbone[-1]          # layer4
+            last_block = list(layer4.children())[-1] # last Bottleneck
+            return last_block.conv3
+
         elif mn == 'ResNet50':
             return model.layer4[-1].conv3
+
         elif mn == 'EfficientNet-B4':
+            # timm EfficientNet — conv_head is the last conv before classifier
             return model.conv_head
+
+        elif mn == 'ViT-B16':
+            # ViT has no conv layers — hook on last block norm1 for attention proxy
+            return model.blocks[-1].norm1
+
         elif mn == 'MiniSegNet':
+            # enc3 is nn.Sequential of two ConvBNReLU, each has .net
+            # enc3[1].net[0] is the Conv2d of the second ConvBNReLU
             return model.enc3[1].net[0]
+
         elif mn in ('HybridNet_RV', 'HybridNet_EV'):
             return model.get_gradcam_layer()
-    except Exception:
+
+    except Exception as e:
         pass
     return None
 
@@ -331,14 +363,20 @@ def predict(model, device, classes, mn, pil_image):
         conf, pred = torch.max(probs, 1)
         class_idx  = pred.item()
 
-    # GradCAM
+    # GradCAM — run separately after inference, fresh tensor
     overlay = heatmap = None
     gc_layer = get_gradcam_layer(model, mn)
     if gc_layer is not None:
         try:
-            gc      = GradCAM(model, gc_layer)
-            cam_map = gc.generate(img_tensor, class_idx, device)
-            overlay, heatmap = apply_colormap(img_rgb, cam_map)
+            # ViT norm layers don't produce 2D spatial grads — skip
+            if mn == 'ViT-B16':
+                pass
+            else:
+                gc      = GradCAM(model, gc_layer)
+                fresh   = TRANSFORM(img_rgb).unsqueeze(0)   # fresh tensor, no grad history
+                cam_map = gc.generate(fresh, class_idx, device)
+                if cam_map.max() > 0:
+                    overlay, heatmap = apply_colormap(img_rgb, cam_map)
         except Exception:
             pass
 
