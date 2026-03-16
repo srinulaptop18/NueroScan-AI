@@ -26,126 +26,24 @@ import pandas as pd
 import timm
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  CONFIG  — updated 2026-03-15 with new .pth files
+#  CONFIG  — 3 models: HybridNet_RV · HybridNet_EV · ViT-B16
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Individual Drive file IDs for each model (from 20260315_100903 training run)
 MODEL_DRIVE_IDS = {
-    "resnet50_best.pth":        "1mUjefMpXU9vIFZl7j8aY3PohnavbqSJB",
-    "efficientnet-b4_best.pth": "12ie2mSqBTzxOZdwfHvxom9Q2IdoUt0LX",
-    "vit-b16_best.pth":         "1D_Kit-vFC8PBPYFk3kG4ZVBcmNzVkJBw",
-    "minisegnet_best.pth":      "1YLPUe4d82NMZTtuaFN8Eq9l75IaOP6Wg",
-    "hybridnet_rv_best.pth":    "1D_HT-DCMvmqTLVxnjG3y814Q9qH05sZs",
-    "hybridnet_ev_best.pth":    "1uXL90WvSm7akZbgpYZCinGAzLUhwhl6i",
+    "hybridnet_rv_best.pth": "1D_HT-DCMvmqTLVxnjG3y814Q9qH05sZs",
+    "hybridnet_ev_best.pth": "1uXL90WvSm7akZbgpYZCinGAzLUhwhl6i",
+    "vit-b16_best.pth":      "1D_Kit-vFC8PBPYFk3kG4ZVBcmNzVkJBw",
 }
 
 MODEL_FILES = {
     "HybridNet_RV (ResNet50 + ViT)":     "hybridnet_rv_best.pth",
     "HybridNet_EV (EfficientNet + ViT)": "hybridnet_ev_best.pth",
-    "ResNet50":                           "resnet50_best.pth",
-    "EfficientNet-B4":                    "efficientnet-b4_best.pth",
-    "ViT-B16":                            "vit-b16_best.pth",
-    "MiniSegNet":                         "minisegnet_best.pth",
+    "ViT-B16  —  Vision Transformer":    "vit-b16_best.pth",
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  MODEL ARCHITECTURES
+#  MODEL ARCHITECTURES — HybridNet_RV · HybridNet_EV · ViT-B16
 # ══════════════════════════════════════════════════════════════════════════════
-
-# ── Legacy ResNetViT (matches new_ntau.pth exactly) ──────────────────────────
-# Architecture must match EXACTLY what was used to save new_ntau.pth
-# Original app.py (PDF page 29) used ResNetBackbone + PatchEmbedding classes
-
-class _ResNetBackbone(nn.Module):
-    """Matches original ResNetBackbone class from new_ntau.pth training."""
-    def __init__(self):
-        super().__init__()
-        resnet = tv_models.resnet50(weights=None)
-        for p in resnet.parameters():
-            p.requires_grad = False
-        for p in resnet.layer4.parameters():
-            p.requires_grad = True
-        self.features = nn.Sequential(*list(resnet.children())[:-2])
-    def forward(self, x):
-        return self.features(x)
-
-class _PatchEmbedding(nn.Module):
-    """Matches original PatchEmbedding class from new_ntau.pth training."""
-    def __init__(self, in_channels=2048, embed_dim=768):
-        super().__init__()
-        self.proj = nn.Conv2d(in_channels, embed_dim, 1)
-    def forward(self, x):
-        x = self.proj(x)
-        B, C, H, W = x.shape
-        return x.flatten(2).transpose(1, 2)
-
-class _TransformerEncoder(nn.Module):
-    """Matches original TransformerEncoder class from new_ntau.pth training."""
-    def __init__(self, embed_dim=768, heads=8, depth=6):
-        super().__init__()
-        layer = nn.TransformerEncoderLayer(
-            d_model=embed_dim, nhead=heads,
-            dim_feedforward=2048, batch_first=True)
-        self.encoder = nn.TransformerEncoder(layer, depth)
-    def forward(self, x):
-        return self.encoder(x)
-
-class ResNetViT_Legacy(nn.Module):
-    """
-    Must match the original ResNetViT class EXACTLY as saved in new_ntau.pth.
-    Keys: backbone.features.X, patch_embed.proj.X, transformer.encoder.X,
-          norm.X, dropout, fc.X
-    """
-    def __init__(self, num_classes=2):
-        super().__init__()
-        self.backbone    = _ResNetBackbone()
-        self.patch_embed = _PatchEmbedding()
-        self.transformer = _TransformerEncoder()
-        self.norm        = nn.LayerNorm(768)
-        self.dropout     = nn.Dropout(0.3)
-        self.fc          = nn.Linear(768, num_classes)
-
-    def forward(self, x):
-        x = self.backbone(x)
-        x = self.patch_embed(x)
-        x = self.transformer(x)
-        x = x.mean(dim=1)
-        x = self.norm(x)
-        x = self.dropout(x)
-        return self.fc(x)
-
-
-# ── Shared conv block ────────────────────────────────────────────────────────
-class ConvBNReLU(nn.Module):
-    def __init__(self, ic, oc, k=3, p=1):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Conv2d(ic, oc, k, padding=p, bias=False),
-            nn.BatchNorm2d(oc), nn.ReLU(inplace=True)
-        )
-    def forward(self, x): return self.net(x)
-
-
-# ── MiniSegNet ───────────────────────────────────────────────────────────────
-class MiniSegNet(nn.Module):
-    def __init__(self, nc):
-        super().__init__()
-        self.enc1 = nn.Sequential(ConvBNReLU(3,  32), ConvBNReLU(32,  32))
-        self.enc2 = nn.Sequential(ConvBNReLU(32, 64), ConvBNReLU(64,  64))
-        self.enc3 = nn.Sequential(ConvBNReLU(64,128), ConvBNReLU(128,128))
-        self.pool = nn.MaxPool2d(2, 2)
-        self.gap  = nn.AdaptiveAvgPool2d(1)
-        self.head = nn.Sequential(
-            nn.Flatten(), nn.LayerNorm(128), nn.Dropout(0.40),
-            nn.Linear(128, 64), nn.GELU(),
-            nn.Dropout(0.25), nn.Linear(64, nc)
-        )
-    def forward(self, x):
-        x = self.pool(self.enc1(x))
-        x = self.pool(self.enc2(x))
-        x = self.pool(self.enc3(x))
-        return self.head(self.gap(x))
-
 
 # ── CrossAttentionFusion ─────────────────────────────────────────────────────
 class CrossAttentionFusion(nn.Module):
@@ -163,7 +61,7 @@ class CrossAttentionFusion(nn.Module):
         return self.n2(x + self.ffn(x))
 
 
-# ── HybridNet ────────────────────────────────────────────────────────────────
+# ── HybridNet (RV = ResNet50+ViT, EV = EfficientNet+ViT) ─────────────────────
 class HybridNet(nn.Module):
     def __init__(self, nc, backbone_type='resnet50', d_model=512, n_heads=8, dropout=0.2):
         super().__init__()
@@ -202,6 +100,7 @@ class HybridNet(nn.Module):
         if self.backbone_type == 'resnet50':
             return self.cnn[-1][-1].conv3
         return self.cnn.blocks[-1][-1].conv_pwl
+    # ViT-B16 uses timm directly — no custom class needed
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -288,29 +187,14 @@ def load_model(model_path: str):
         st.error("Unrecognised checkpoint format.")
         st.stop()
 
-    # ── Build correct architecture ────────────────────────────────────────
-    if mn == 'ResNetViT_Legacy':
-        m = ResNetViT_Legacy(num_classes=nc)
-    elif mn == 'ResNet50':
-        m   = tv_models.resnet50(weights=None)
-        inf = m.fc.in_features
-        m.fc = nn.Sequential(
-            nn.BatchNorm1d(inf), nn.Dropout(0.45),
-            nn.Linear(inf, 512), nn.ReLU(True),
-            nn.BatchNorm1d(512), nn.Dropout(0.30),
-            nn.Linear(512, nc)
-        )
-    elif mn == 'EfficientNet-B4':
-        m = timm.create_model('efficientnet_b4', pretrained=False, num_classes=nc)
-    elif mn == 'ViT-B16':
-        m = timm.create_model('vit_base_patch16_224', pretrained=False, num_classes=nc)
-    elif mn == 'MiniSegNet':
-        m = MiniSegNet(nc)
-    elif mn in ('HybridNet_RV', 'HybridNet_EV'):
+    # ── Build correct architecture — only RV, EV, ViT ──────────────────────
+    if mn in ('HybridNet_RV', 'HybridNet_EV'):
         backbone = bt or ('resnet50' if 'RV' in mn else 'efficientnet_b4')
         m = HybridNet(nc, backbone_type=backbone)
+    elif mn == 'ViT-B16':
+        m = timm.create_model('vit_base_patch16_224', pretrained=False, num_classes=nc)
     else:
-        st.error(f"Unknown model name in checkpoint: {mn}")
+        st.error(f"Unsupported model: {mn}. This app uses HybridNet_RV, HybridNet_EV and ViT-B16 only.")
         st.stop()
 
     # Load weights — strict=True catches mismatches immediately
@@ -367,38 +251,13 @@ class GradCAM:
 
 
 def get_gradcam_layer(model, mn):
-    """Returns the target conv layer for GradCAM. Robust to model structure."""
+    """Returns the target conv layer for GradCAM (HybridNet only; ViT skipped)."""
     try:
-        if mn == 'ResNetViT_Legacy':
-            # backbone.features is nn.Sequential of ResNet children[:-2]
-            # last element is layer4, last Bottleneck block
-            layer4     = model.backbone.features[-1]
-            last_block = list(layer4.children())[-1]
-            return last_block.conv3
-
-        elif mn == 'ResNet50':
-            return model.layer4[-1].conv3
-
-        elif mn == 'EfficientNet-B4':
-            # timm EfficientNet — conv_head is the last conv before classifier
-            return model.conv_head
-
-        elif mn == 'ViT-B16':
-            # ViT has no conv layers — hook on last block norm1 for attention proxy
-            return model.blocks[-1].norm1
-
-        elif mn == 'MiniSegNet':
-            # enc3 is nn.Sequential of two ConvBNReLU, each has .net
-            # enc3[1].net[0] is the Conv2d of the second ConvBNReLU
-            return model.enc3[1].net[0]
-
-        elif mn in ('HybridNet_RV', 'HybridNet_EV'):
+        if mn in ('HybridNet_RV', 'HybridNet_EV'):
             return model.get_gradcam_layer()
-
-    except Exception as e:
+    except Exception:
         pass
     return None
-
 
 def apply_colormap(orig_pil, cam):
     heatmap  = (cm.jet(cam)[:, :, :3] * 255).astype(np.uint8)
@@ -984,13 +843,10 @@ with st.sidebar:
     )
 
     MODEL_DISPLAY = {
-        "🔀 HybridNet RV  —  ResNet50 + ViT":      "HybridNet_RV (ResNet50 + ViT)",
-        "🔀 HybridNet EV  —  EffNet + ViT":         "HybridNet_EV (EfficientNet + ViT)",
-        "🧱 ResNet50  —  CNN Backbone":              "ResNet50",
-        "⚡ EfficientNet-B4  —  Compound CNN":       "EfficientNet-B4",
-        "👁 ViT-B/16  —  Vision Transformer":        "ViT-B16",
-        "🗺 MiniSegNet  —  Lightweight U-Net":        "MiniSegNet",
-        "✦ All Models  —  Ensemble (recommended)":   "__ALL__",
+        "🔀 HybridNet RV  —  ResNet50 + ViT":     "HybridNet_RV (ResNet50 + ViT)",
+        "🔀 HybridNet EV  —  EffNet + ViT":        "HybridNet_EV (EfficientNet + ViT)",
+        "👁 ViT-B/16  —  Vision Transformer":       "ViT-B16  —  Vision Transformer",
+        "✦ All 3 Models  —  Ensemble (recommended)":"__ALL__",
     }
 
     selected_display = st.radio(
@@ -1005,14 +861,11 @@ with st.sidebar:
     selected_acc = {
         "HybridNet_RV (ResNet50 + ViT)":    "98.4%",
         "HybridNet_EV (EfficientNet + ViT)":"99.2%",
-        "ResNet50":                          "100%",
-        "EfficientNet-B4":                   "100%",
-        "ViT-B16":                           "99.9%",
-        "MiniSegNet":                        "97.6%",
-        "__ALL__":                           "100%",
+        "ViT-B16  —  Vision Transformer":   "99.9%",
+        "__ALL__":                           "99.8%",
     }
     acc = selected_acc.get(model_choice_key, "—")
-    mode_label = "All 6 Models + Ensemble" if model_choice_key == "__ALL__" else model_choice_key
+    mode_label = "All 3 Models + Ensemble" if model_choice_key == "__ALL__" else model_choice_key
     st.markdown(
         f'<div style="background:linear-gradient(135deg,rgba(184,134,11,0.12),'
         f'rgba(184,134,11,0.06));border:1px solid rgba(184,134,11,0.4);'
@@ -1099,20 +952,17 @@ tab_scan, tab_batch, tab_about = st.tabs([
 with tab_scan:
 
     # ── Model cards row — highlights sidebar selection ──────────────────────
-    _run_mode = "All 6 Models + Ensemble" if RUN_ALL_MODELS else model_choice_key
+    _run_mode = "All 3 Models + Ensemble" if RUN_ALL_MODELS else model_choice_key
     st.markdown(
         f'<div class="sec-head">✦ Mode: {_run_mode}</div>',
         unsafe_allow_html=True
     )
     _MODEL_INFO = {
-        "HybridNet_RV (ResNet50 + ViT)":     {"icon":"🔀","short":"HybridNet RV","acc":"98.4%","desc":"ResNet50+ViT"},
-        "HybridNet_EV (EfficientNet + ViT)": {"icon":"🔀","short":"HybridNet EV","acc":"99.2%","desc":"EffNet+ViT"},
-        "ResNet50":                           {"icon":"🧱","short":"ResNet50",    "acc":"100%", "desc":"CNN Backbone"},
-        "EfficientNet-B4":                    {"icon":"⚡","short":"EffNet-B4",   "acc":"100%", "desc":"Compound CNN"},
-        "ViT-B16":                            {"icon":"👁","short":"ViT-B/16",    "acc":"99.9%","desc":"Transformer"},
-        "MiniSegNet":                         {"icon":"🗺","short":"MiniSegNet",  "acc":"97.6%","desc":"U-Net Lite"},
+        "HybridNet_RV (ResNet50 + ViT)":     {"icon":"🔀","short":"HybridNet RV","acc":"98.4%","desc":"ResNet50 + ViT"},
+        "HybridNet_EV (EfficientNet + ViT)": {"icon":"🔀","short":"HybridNet EV","acc":"99.2%","desc":"EfficientNet + ViT"},
+        "ViT-B16  —  Vision Transformer":    {"icon":"👁","short":"ViT-B/16",    "acc":"99.9%","desc":"Pure Transformer"},
     }
-    _mc_cols = st.columns(6, gap="small")
+    _mc_cols = st.columns(3, gap="large")
     for _ci, (_mkey, _minfo) in enumerate(_MODEL_INFO.items()):
         _is_sel     = RUN_ALL_MODELS or (model_choice_key == _mkey)
         _top_bdr    = "3px solid #c9a84c" if _is_sel else "3px solid rgba(184,134,11,0.1)"
@@ -1216,7 +1066,7 @@ with tab_scan:
                         # Only ONE model in RAM at a time (~450 MB peak max)
                         all_model_results = {}
                         all_probs_list    = []
-                        ensemble_weights  = [0.8, 0.9, 0.8, 0.6, 1.2, 1.2]
+                        ensemble_weights  = [1.2, 1.2, 0.8]   # RV, EV, ViT
                         _cls_list  = None
                         _first_img = None
 
@@ -1265,7 +1115,7 @@ with tab_scan:
                         _prog.empty()
 
                         # ── Ensemble or single-model result ──────────────────
-                        if RUN_ALL_MODELS and len(all_probs_list) == 6:
+                        if RUN_ALL_MODELS and len(all_probs_list) == 3:
                             _ens_weights = ensemble_weights
                         else:
                             _ens_weights = [1.0] * len(all_probs_list)
@@ -1310,7 +1160,7 @@ with tab_scan:
                         st.session_state.ensemble_result   = ens_result
                         st.session_state.prediction_result = ens_result
                         st.session_state.prediction_made   = True
-                        _done_msg = 'All 6 models analysed!' if RUN_ALL_MODELS else f'{model_choice_key} analysis complete!'
+                        _done_msg = 'All 3 models analysed!' if RUN_ALL_MODELS else f'{model_choice_key} analysis complete!'
                         st.success(_done_msg)
                         st.balloons()
                         st.rerun()
