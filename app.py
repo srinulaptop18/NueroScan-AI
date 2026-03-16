@@ -621,27 +621,46 @@ hr{border:none!important;height:1px!important;background:linear-gradient(90deg,t
 .stAlert{border-radius:var(--radius)!important;font-family:'EB Garamond',serif!important;}
 .team-card{background:linear-gradient(145deg,#fffdf8,#fff6e8);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.4rem 1rem;text-align:center;transition:border-color .3s,transform .3s;}
 .team-card:hover{border-color:var(--gold-border);transform:translateY(-4px);box-shadow:var(--shadow-gold);}
+/* ── Sidebar toggle / collapse button — all known selectors ── */
 [data-testid="stSidebarCollapsedControl"] button,
-[data-testid="collapsedControl"] button {
+[data-testid="collapsedControl"] button,
+button[kind="header"],
+[data-testid="baseButton-header"],
+section[data-testid="stSidebar"] + div button,
+div[data-testid="stSidebarCollapsedControl"] > button {
   background:linear-gradient(135deg,#8a6e2f,#c9a84c,#e8c96a,#c9a84c,#8a6e2f) !important;
-  border:1px solid rgba(232,201,106,0.6) !important;
-  border-radius:8px !important;
+  border:1px solid rgba(232,201,106,0.7) !important;
+  border-radius:10px !important;
   color:#07090f !important;
-  font-size:1.1rem !important;
-  width:42px !important;
-  height:42px !important;
-  box-shadow:0 3px 12px rgba(201,168,76,0.4),inset 0 1px 0 rgba(255,255,255,0.2) !important;
+  font-size:1.3rem !important;
+  width:46px !important;
+  height:46px !important;
+  min-width:46px !important;
+  min-height:46px !important;
+  box-shadow:0 4px 16px rgba(201,168,76,0.5),inset 0 1px 0 rgba(255,255,255,0.3) !important;
   transition:all .3s ease !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  position:relative !important;
+}
+[data-testid="stSidebarCollapsedControl"] button::before,
+[data-testid="collapsedControl"] button::before,
+div[data-testid="stSidebarCollapsedControl"] > button::before {
+  content:'🧠' !important;
+  font-size:1.3rem !important;
+  position:absolute !important;
+}
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="collapsedControl"] button svg,
+div[data-testid="stSidebarCollapsedControl"] > button svg {
+  display:none !important;
 }
 [data-testid="stSidebarCollapsedControl"] button:hover,
-[data-testid="collapsedControl"] button:hover {
-  transform:scale(1.08) !important;
-  box-shadow:0 6px 20px rgba(201,168,76,0.55) !important;
-}
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="collapsedControl"] svg {
-  fill:#07090f !important;
-  color:#07090f !important;
+[data-testid="collapsedControl"] button:hover,
+div[data-testid="stSidebarCollapsedControl"] > button:hover {
+  transform:scale(1.1) rotate(-5deg) !important;
+  box-shadow:0 8px 24px rgba(201,168,76,0.7) !important;
 }
 .stRadio>label{
   font-family:'Cinzel',serif !important;
@@ -742,11 +761,132 @@ st.markdown(
     'border-radius:3px;padding:.3rem 1rem;font-family:Cinzel,serif;font-size:.65rem;'
     'color:#8a5e00;letter-spacing:1.5px;">⬡ Batch Analysis</span>'
     '</div>'
+    # ── Esteemed Guidance line ─────────────────────────────────────────
+    '<div style="display:flex;align-items:center;gap:.8rem;margin-top:.3rem;">'
+    '<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3));"></div>'
+    '<div style="background:linear-gradient(135deg,rgba(184,134,11,0.10),rgba(184,134,11,0.05));'
+    'border:1px solid rgba(184,134,11,0.3);border-radius:20px;'
+    'padding:.35rem 1.4rem;text-align:center;">'
+    '<span style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:.88rem;'
+    'color:#9a7030;letter-spacing:1.5px;">Under the Esteemed Guidance of</span>'
+    '&nbsp;&nbsp;'
+    '<span style="font-family:Cinzel,serif;font-size:.88rem;font-weight:700;'
+    'color:#7a4f00;letter-spacing:1px;">Mr. N P U V S N Pavan Kumar</span>'
+    '&nbsp;'
+    '<span style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:.8rem;'
+    'color:#b8860b;">(Asst. Professor, Dept. of ECE)</span>'
+    '</div>'
+    '<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,rgba(184,134,11,0.3),transparent);"></div>'
+    '</div>'
     '<div style="position:absolute;bottom:0;left:0;right:0;height:1px;'
     'background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3),transparent);"></div>'
     '</div>',
     unsafe_allow_html=True,
 )
+
+# ── About Project Dialog ──────────────────────────────────────────────────────
+_hc1, _hc2, _hc3 = st.columns([3, 2, 3])
+with _hc2:
+    if st.button('📋 About Project', key='hero_about_btn'):
+        st.session_state['show_project_dialog'] = True
+
+if st.session_state.get('show_project_dialog', False):
+    @st.dialog("📋 About the Project", width="large")
+    def _project_dialog():
+        st.markdown(
+            '<div style="font-family:Cinzel,serif;font-size:.7rem;color:#b8860b;'
+            'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">'
+            '⚗ B.Tech Final Year Project · 2025-26 · Dept. of ECE · BVC College of Engineering</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="font-family:Playfair Display,serif;font-size:1.4rem;font-weight:700;'
+            'color:#2c1a00;margin-bottom:1rem;line-height:1.35;">'
+            "Parkinson's Disease Detection Using Deep Learning on Brain MRI"
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#5a3a0a;'
+            'line-height:1.85;margin-bottom:1.2rem;">'
+            'This project applies <strong style="color:#8a5e00;">Hybrid Deep Learning</strong> architectures to classify '
+            'brain MRI scans for early detection of Parkinson\'s Disease. '
+            'Using the <em>irfansheriff/parkinsons-brain-mri-dataset</em> (831 scans: 610 Normal · 221 Parkinson), '
+            'six models are trained and validated: <strong style="color:#8a5e00;">ResNet50</strong>, '
+            '<strong style="color:#8a5e00;">EfficientNet-B4</strong>, '
+            '<strong style="color:#8a5e00;">ViT-B/16</strong>, '
+            '<strong style="color:#8a5e00;">MiniSegNet</strong>, '
+            '<strong style="color:#8a5e00;">HybridNet_RV</strong> (ResNet50 + ViT via Cross-Attention Fusion), '
+            'and <strong style="color:#8a5e00;">HybridNet_EV</strong> (EfficientNet-B4 + ViT via Cross-Attention Fusion).'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        _d1, _d2 = st.columns(2)
+        with _d1:
+            st.markdown(
+                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
+                'border-radius:10px;padding:1rem 1.2rem;margin-bottom:.8rem;">'
+                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
+                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">📦 Dataset</div>'
+                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
+                '831 total scans (Kaggle)<br>'
+                '610 Normal · 221 Parkinson<br>'
+                'Split: 581 Train · 125 Val · 125 Test<br>'
+                'WeightedRandomSampler for class balance'
+                '</div></div>'
+                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
+                'border-radius:10px;padding:1rem 1.2rem;">'
+                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
+                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">⚙ Training Config</div>'
+                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
+                'SEED=42 · IMG=224×224 · BS=16 · EPOCHS=30<br>'
+                'MixUp (α=0.3) · Label Smoothing (ε=0.1)<br>'
+                'CosineAnnealingLR · Early Stopping (patience=7)<br>'
+                'AMP mixed precision · Gradient clip=1.0'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+        with _d2:
+            st.markdown(
+                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
+                'border-radius:10px;padding:1rem 1.2rem;margin-bottom:.8rem;">'
+                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
+                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">📊 Results</div>'
+                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
+                'ResNet50: <strong>100%</strong> · EfficientNet: <strong>99.2%</strong><br>'
+                'ViT-B/16: <strong>100%</strong> · MiniSegNet: <strong>97.6%</strong><br>'
+                'HybridNet_RV: <strong>96%</strong> · HybridNet_EV: <strong>100%</strong><br>'
+                'Ensemble: <strong style="color:#1a6a38;">100%</strong> accuracy'
+                '</div></div>'
+                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
+                'border-radius:10px;padding:1rem 1.2rem;">'
+                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
+                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">🖥 Tech Stack</div>'
+                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
+                'PyTorch · timm · torchvision<br>'
+                'scikit-learn · OpenCV · Seaborn<br>'
+                'Streamlit · ReportLab<br>'
+                'Google Colab · Tesla T4 GPU (15.6 GB)'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            '<div style="background:rgba(30,132,73,0.06);border:1px solid rgba(30,132,73,0.2);'
+            'border-left:4px solid #1a6a38;border-radius:8px;padding:.8rem 1.2rem;margin-top:.5rem;">'
+            '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#1a6a38;'
+            'letter-spacing:2px;text-transform:uppercase;margin-bottom:.3rem;">🏆 Key Innovation</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.95rem;color:#0a2e18;line-height:1.7;">'
+            '<strong>Cross-Attention Fusion</strong> — a novel architecture that bridges CNN spatial '
+            'feature maps with ViT global patch tokens via multi-head cross-attention, combining '
+            'the best of local texture recognition (CNN) and global context understanding (ViT) '
+            'for superior Parkinson\'s detection from brain MRI scans.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button('✕ Close', key='close_project_dialog'):
+            st.session_state['show_project_dialog'] = False
+            st.rerun()
+    _project_dialog()
 
 # ── Session state ─────────────────────────────────────────────────────────────
 for k, v in [
@@ -755,6 +895,7 @@ for k, v in [
     ('prediction_result', {}),
     ('batch_results',     []),
     ('last_model',        ''),
+    ('show_project_dialog', False),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -880,7 +1021,7 @@ RUN_ALL_MODELS = (model_choice_key == "__ALL__")
 tab_scan, tab_batch, tab_about = st.tabs([
     '🧠  Single MRI Analysis',
     '📦  Batch Analysis',
-    '🏛  About',
+    '👥  About Us',
 ])
 
 
@@ -1790,71 +1931,219 @@ with tab_about:
     # ══════════════════════════════════════════════════════════════════════
     #  PROJECT TEAM
     # ══════════════════════════════════════════════════════════════════════
-    st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Team</div>', unsafe_allow_html=True)
-    _team = [
-        {'roll': '236M5A0408', 'name': 'G Srinivasu',      'icon': '👨\u200d💻', 'role': 'AI Model & Backend'},
-        {'roll': '226M1A0460', 'name': 'S Anusha Devi',    'icon': '👩\u200d💻', 'role': 'UI/UX & Frontend'},
-        {'roll': '226M1A0473', 'name': 'V V Siva Vardhan', 'icon': '👨\u200d💻', 'role': 'Data & Testing'},
-        {'roll': '236M5A0415', 'name': 'N L Sandeep',      'icon': '👨\u200d💻', 'role': 'Reports & Integration'},
+    # ══════════════════════════════════════════════════════════════════════
+    #  WHO ARE WE  — unique immersive team section
+    # ══════════════════════════════════════════════════════════════════════
+    st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Who We Are</div>', unsafe_allow_html=True)
+
+    # Guidance banner — full width, prominent
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,#fdf3dc 0%,#fceedd 50%,#fdf3dc 100%);'
+        'border:1.5px solid rgba(184,134,11,0.4);border-radius:16px;'
+        'padding:1.6rem 2.5rem;margin-bottom:1.8rem;position:relative;overflow:hidden;">'
+        '<div style="position:absolute;top:0;left:0;right:0;height:3px;'
+        'background:linear-gradient(90deg,transparent,#c9a84c,#e8c96a,#c9a84c,transparent);"></div>'
+        '<div style="position:absolute;bottom:0;left:0;right:0;height:1px;'
+        'background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3),transparent);"></div>'
+        '<div style="display:flex;align-items:center;gap:2rem;flex-wrap:wrap;">'
+        '<div style="font-size:3rem;">🎓</div>'
+        '<div style="flex:1;">'
+        '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
+        'letter-spacing:3px;text-transform:uppercase;margin-bottom:.3rem;">'
+        '⭐ Under the Esteemed Guidance of</div>'
+        '<div style="font-family:Playfair Display,serif;font-size:1.4rem;font-weight:700;'
+        'color:#2c1a00;line-height:1.2;margin-bottom:.25rem;">'
+        'Mr. N P U V S N Pavan Kumar, M.Tech</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.95rem;font-style:italic;color:#8a5e00;">'
+        'Assistant Professor · Dept. of ECE · Deputy CoE III · BVC College of Engineering, Rajahmundry'
+        '</div></div>'
+        '<div style="background:linear-gradient(135deg,#7a4f00,#b8860b);'
+        'border-radius:10px;padding:.8rem 1.4rem;text-align:center;flex-shrink:0;">'
+        '<div style="font-family:Cinzel,serif;font-size:.6rem;color:rgba(255,255,255,0.7);'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.2rem;">Project Guide</div>'
+        '<div style="font-size:1.6rem;">🏆</div>'
+        '</div></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    # Team members — unique card per person with role-themed gradient
+    _team_data = [
+        {
+            'roll':  '236M5A0408',
+            'name':  'G Srinivasu',
+            'role':  'AI Model Architect & Backend Developer',
+            'icon':  '🤖',
+            'color1':'#1a3a2a', 'color2':'#2d6a4f',
+            'accent':'#4ade80',
+            'tags':  ['PyTorch', 'Model Training', 'Backend API'],
+            'desc':  'Designed and trained all 6 deep learning models including the HybridNet Cross-Attention Fusion architecture. Led backend integration and model optimization on Google Colab T4 GPU.',
+        },
+        {
+            'roll':  '226M1A0460',
+            'name':  'S Anusha Devi',
+            'role':  'UI/UX Designer & Frontend Developer',
+            'icon':  '🎨',
+            'color1':'#2a1a3a', 'color2':'#6a2d8f',
+            'accent':'#c084fc',
+            'tags':  ['Streamlit', 'CSS Design', 'User Experience'],
+            'desc':  'Crafted the entire royal gold aesthetic UI including the hero banner, interactive tabs, and PDF report layout. Ensured a seamless, elegant user experience across all features.',
+        },
+        {
+            'roll':  '226M1A0473',
+            'name':  'V V Siva Vardhan',
+            'role':  'Data Engineer & Quality Analyst',
+            'icon':  '📊',
+            'color1':'#1a2a3a', 'color2':'#2d4f8a',
+            'accent':'#60a5fa',
+            'tags':  ['Data Pipeline', 'Augmentation', 'Testing'],
+            'desc':  'Managed the full data pipeline including Kaggle dataset ingestion, image verification, augmentation strategy design (MixUp, ColorJitter, RandomErasing), and model evaluation testing.',
+        },
+        {
+            'roll':  '236M5A0415',
+            'name':  'N L Sandeep',
+            'role':  'Documentation & Integration Lead',
+            'icon':  '📝',
+            'color1':'#3a2a1a', 'color2':'#8a4f2d',
+            'accent':'#fb923c',
+            'tags':  ['PDF Reports', 'Integration', 'Documentation'],
+            'desc':  'Built the automated gold-themed PDF report generation system using ReportLab. Handled system integration, ensemble logic documentation, and project report writing.',
+        },
     ]
-    _tcols = st.columns(4)
-    for _i, _m in enumerate(_team):
-        with _tcols[_i]:
+
+    # Row 1 — first two members
+    _tc1, _tc2 = st.columns(2, gap='large')
+    for _col, _m in zip([_tc1, _tc2], _team_data[:2]):
+        with _col:
+            _tags_html = ''.join(
+                f'<span style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);'
+                f'border-radius:20px;padding:.2rem .75rem;font-family:Cinzel,serif;font-size:.56rem;'
+                f'color:rgba(255,255,255,0.85);letter-spacing:.8px;">{t}</span>'
+                for t in _m['tags']
+            )
             st.markdown(
-                f'<div class="team-card" style="position:relative;overflow:hidden;">'
-                f'<div style="position:absolute;top:0;left:0;right:0;height:2px;'
-                f'background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>'
-                f'<div style="font-size:2.6rem;margin-bottom:.6rem;">{_m["icon"]}</div>'
-                f'<div style="font-family:Playfair Display,serif;font-size:1.05rem;'
-                f'font-weight:700;color:#2c1a00;margin-bottom:.3rem;">{_m["name"]}</div>'
-                f'<div style="font-family:EB Garamond,serif;font-size:.88rem;'
-                f'color:#8a5e00;margin-bottom:.4rem;font-style:italic;">{_m["role"]}</div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.58rem;'
-                f'color:#b89040;letter-spacing:1.5px;">{_m["roll"]}</div>'
+                f'<div style="background:linear-gradient(145deg,{_m["color1"]},{_m["color2"]});'
+                f'border:1px solid rgba(255,255,255,0.1);border-radius:16px;'
+                f'padding:1.8rem 1.6rem;position:relative;overflow:hidden;'
+                f'box-shadow:0 8px 32px rgba(0,0,0,0.25);transition:transform .3s;">'
+                # Decorative glow
+                f'<div style="position:absolute;top:-30px;right:-30px;width:100px;height:100px;'
+                f'background:radial-gradient(circle,{_m["accent"]}22,transparent 70%);'
+                f'border-radius:50%;"></div>'
+                # Top accent line
+                f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
+                f'background:linear-gradient(90deg,transparent,{_m["accent"]},transparent);"></div>'
+                # Icon + roll
+                f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">'
+                f'<div style="width:56px;height:56px;background:rgba(255,255,255,0.08);'
+                f'border:1px solid rgba(255,255,255,0.15);border-radius:14px;'
+                f'display:flex;align-items:center;justify-content:center;font-size:1.8rem;">'
+                f'{_m["icon"]}</div>'
+                f'<div style="background:rgba(255,255,255,0.08);border-radius:6px;'
+                f'padding:.2rem .6rem;font-family:Cinzel,serif;font-size:.55rem;'
+                f'color:{_m["accent"]};letter-spacing:1px;">{_m["roll"]}</div>'
+                f'</div>'
+                # Name
+                f'<div style="font-family:Playfair Display,serif;font-size:1.25rem;font-weight:700;'
+                f'color:#ffffff;margin-bottom:.2rem;line-height:1.2;">{_m["name"]}</div>'
+                # Role
+                f'<div style="font-family:Cinzel,serif;font-size:.62rem;color:{_m["accent"]};'
+                f'letter-spacing:1.5px;text-transform:uppercase;margin-bottom:.8rem;">{_m["role"]}</div>'
+                # Desc
+                f'<div style="font-family:EB Garamond,serif;font-size:.9rem;'
+                f'color:rgba(255,255,255,0.75);line-height:1.7;margin-bottom:1rem;">{_m["desc"]}</div>'
+                # Tags
+                f'<div style="display:flex;gap:.4rem;flex-wrap:wrap;">{_tags_html}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown('<div style="height:.8rem;"></div>', unsafe_allow_html=True)
+
+    # Row 2 — next two members
+    _tc3, _tc4 = st.columns(2, gap='large')
+    for _col, _m in zip([_tc3, _tc4], _team_data[2:]):
+        with _col:
+            _tags_html = ''.join(
+                f'<span style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);'
+                f'border-radius:20px;padding:.2rem .75rem;font-family:Cinzel,serif;font-size:.56rem;'
+                f'color:rgba(255,255,255,0.85);letter-spacing:.8px;">{t}</span>'
+                for t in _m['tags']
+            )
+            st.markdown(
+                f'<div style="background:linear-gradient(145deg,{_m["color1"]},{_m["color2"]});'
+                f'border:1px solid rgba(255,255,255,0.1);border-radius:16px;'
+                f'padding:1.8rem 1.6rem;position:relative;overflow:hidden;'
+                f'box-shadow:0 8px 32px rgba(0,0,0,0.25);">'
+                f'<div style="position:absolute;top:-30px;right:-30px;width:100px;height:100px;'
+                f'background:radial-gradient(circle,{_m["accent"]}22,transparent 70%);border-radius:50%;"></div>'
+                f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
+                f'background:linear-gradient(90deg,transparent,{_m["accent"]},transparent);"></div>'
+                f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">'
+                f'<div style="width:56px;height:56px;background:rgba(255,255,255,0.08);'
+                f'border:1px solid rgba(255,255,255,0.15);border-radius:14px;'
+                f'display:flex;align-items:center;justify-content:center;font-size:1.8rem;">'
+                f'{_m["icon"]}</div>'
+                f'<div style="background:rgba(255,255,255,0.08);border-radius:6px;'
+                f'padding:.2rem .6rem;font-family:Cinzel,serif;font-size:.55rem;'
+                f'color:{_m["accent"]};letter-spacing:1px;">{_m["roll"]}</div>'
+                f'</div>'
+                f'<div style="font-family:Playfair Display,serif;font-size:1.25rem;font-weight:700;'
+                f'color:#ffffff;margin-bottom:.2rem;line-height:1.2;">{_m["name"]}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.62rem;color:{_m["accent"]};'
+                f'letter-spacing:1.5px;text-transform:uppercase;margin-bottom:.8rem;">{_m["role"]}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.9rem;'
+                f'color:rgba(255,255,255,0.75);line-height:1.7;margin-bottom:1rem;">{_m["desc"]}</div>'
+                f'<div style="display:flex;gap:.4rem;flex-wrap:wrap;">{_tags_html}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
     # ══════════════════════════════════════════════════════════════════════
-    #  PROJECT GUIDANCE
+    #  PROJECT GUIDANCE — redesigned
     # ══════════════════════════════════════════════════════════════════════
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Guidance</div>', unsafe_allow_html=True)
     _g1, _g2, _g3 = st.columns(3, gap='medium')
-    for _col, _rl, _rc, _icon, _name, _tags in [
-        (_g1, 'Project Guide',       '#b8860b', '👨\u200d🏫',
+    _guide_data = [
+        (_g1, 'Project Guide',       '👨\u200d🏫', '#b8860b', '#fdf3dc',
          'Ms. N P U V S N Pavan Kumar, M.Tech',
-         ['Assistant Professor', 'Dept. of ECE', 'Deputy CoE III']),
-        (_g2, 'Project Coordinator', '#1a6a38', '📋',
+         ['Assistant Professor', 'Dept. of ECE', 'Deputy CoE III'],
+         'Primary guide who mentored the team throughout model design, training strategy, and deployment of the NeuroScan AI system.'),
+        (_g2, 'Project Coordinator', '📋', '#1a6a38', '#f0fdf4',
          'Mr. K Anji Babu, M.Tech',
-         ['Assistant Professor', 'Dept. of ECE']),
-        (_g3, 'Head of Department',  '#7a1a1a', '👨\u200d💼',
+         ['Assistant Professor', 'Dept. of ECE'],
+         'Coordinated project milestones, review sessions, and facilitated academic compliance throughout the project lifecycle.'),
+        (_g3, 'Head of Department',  '👨\u200d💼', '#7a1a1a', '#fff1f1',
          'Dr. S A Vara Prasad, Ph.D, M.Tech',
-         ['Professor & HOD, ECE', 'Chairman BoS', 'Anti-Ragging Committee']),
-    ]:
+         ['Professor & HOD, ECE', 'Chairman BoS', 'Anti-Ragging Committee'],
+         'Provided departmental leadership and institutional support, enabling access to resources for this B.Tech Final Year Project.'),
+    ]
+    for _col, _rl, _icon, _rc, _bg, _name, _tags, _desc in _guide_data:
         _th = ''.join(
-            f'<span style="background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.12);'
-            f'border-radius:4px;padding:.2rem .75rem;font-family:Cinzel,serif;font-size:.6rem;'
-            f'color:{_rc};letter-spacing:1px;font-weight:600;">{_t}</span> '
-            for _t in _tags
+            f'<span style="background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.1);'
+            f'border-radius:4px;padding:.2rem .7rem;font-family:Cinzel,serif;font-size:.58rem;'
+            f'color:{_rc};letter-spacing:.8px;font-weight:600;">{t}</span> '
+            for t in _tags
         )
         with _col:
             st.markdown(
-                f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
-                f'border:1px solid rgba(184,134,11,0.2);border-radius:14px;'
-                f'padding:2rem 1.6rem;text-align:center;position:relative;'
-                f'box-shadow:0 3px 18px rgba(184,134,11,0.08);">'
-                f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
+                f'<div style="background:{_bg};border:1px solid rgba(0,0,0,0.08);'
+                f'border-radius:14px;padding:1.8rem 1.4rem;text-align:center;'
+                f'position:relative;box-shadow:0 3px 18px rgba(0,0,0,0.07);">'
+                f'<div style="position:absolute;top:0;left:0;right:0;height:4px;'
                 f'background:linear-gradient(90deg,transparent,{_rc},transparent);'
                 f'border-radius:14px 14px 0 0;"></div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:{_rc};'
-                f'letter-spacing:2.5px;text-transform:uppercase;margin-bottom:.9rem;'
-                f'font-weight:700;">⭐ {_rl}</div>'
-                f'<div style="font-size:2.5rem;margin-bottom:.7rem;">{_icon}</div>'
-                f'<div style="font-family:Playfair Display,serif;font-size:1rem;'
-                f'font-weight:700;color:#2c1a00;margin-bottom:1rem;line-height:1.4;">'
-                f'{_name}</div>'
-                f'<div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;">'
-                f'{_th}</div></div>',
+                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:{_rc};'
+                f'letter-spacing:2.5px;text-transform:uppercase;margin-bottom:.8rem;font-weight:700;">'
+                f'⭐ {_rl}</div>'
+                f'<div style="width:64px;height:64px;background:linear-gradient(135deg,{_rc}22,{_rc}11);'
+                f'border:2px solid {_rc}44;border-radius:50%;display:flex;align-items:center;'
+                f'justify-content:center;font-size:1.8rem;margin:0 auto .8rem;">{_icon}</div>'
+                f'<div style="font-family:Playfair Display,serif;font-size:1rem;font-weight:700;'
+                f'color:#2c1a00;margin-bottom:.6rem;line-height:1.4;">{_name}</div>'
+                f'<div style="display:flex;flex-wrap:wrap;gap:.3rem;justify-content:center;margin-bottom:.8rem;">{_th}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.88rem;color:#5a3a0a;'
+                f'line-height:1.65;font-style:italic;">{_desc}</div>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
 
