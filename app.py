@@ -26,10 +26,18 @@ import pandas as pd
 import timm
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  CONFIG
+#  CONFIG  — updated 2026-03-15 with new .pth files
 # ══════════════════════════════════════════════════════════════════════════════
-GDRIVE_FILE_ID = "1p2uIwGMGI06iPyuHYeqUAw2EtBN53vvq"
-DEFAULT_MODEL  = "new_ntau.pth"
+
+# Individual Drive file IDs for each model (from 20260315_100903 training run)
+MODEL_DRIVE_IDS = {
+    "resnet50_best.pth":        "1mUjefMpXU9vIFZl7j8aY3PohnavbqSJB",
+    "efficientnet-b4_best.pth": "12ie2mSqBTzxOZdwfHvxom9Q2IdoUt0LX",
+    "vit-b16_best.pth":         "1D_Kit-vFC8PBPYFk3kG4ZVBcmNzVkJBw",
+    "minisegnet_best.pth":      "1YLPUe4d82NMZTtuaFN8Eq9l75IaOP6Wg",
+    "hybridnet_rv_best.pth":    "1D_HT-DCMvmqTLVxnjG3y814Q9qH05sZs",
+    "hybridnet_ev_best.pth":    "1uXL90WvSm7akZbgpYZCinGAzLUhwhl6i",
+}
 
 MODEL_FILES = {
     "HybridNet_RV (ResNet50 + ViT)":     "hybridnet_rv_best.pth",
@@ -38,7 +46,6 @@ MODEL_FILES = {
     "EfficientNet-B4":                    "efficientnet-b4_best.pth",
     "ViT-B16":                            "vit-b16_best.pth",
     "MiniSegNet":                         "minisegnet_best.pth",
-    "Legacy (new_ntau.pth)":              "new_ntau.pth",
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -46,28 +53,66 @@ MODEL_FILES = {
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Legacy ResNetViT (matches new_ntau.pth exactly) ──────────────────────────
-class ResNetViT_Legacy(nn.Module):
-    def __init__(self, num_classes=2):
+# Architecture must match EXACTLY what was used to save new_ntau.pth
+# Original app.py (PDF page 29) used ResNetBackbone + PatchEmbedding classes
+
+class _ResNetBackbone(nn.Module):
+    """Matches original ResNetBackbone class from new_ntau.pth training."""
+    def __init__(self):
         super().__init__()
         resnet = tv_models.resnet50(weights=None)
         for p in resnet.parameters():
             p.requires_grad = False
         for p in resnet.layer4.parameters():
             p.requires_grad = True
-        self.backbone    = nn.Sequential(*list(resnet.children())[:-2])
-        self.patch_embed = nn.Conv2d(2048, 768, 1)
+        self.features = nn.Sequential(*list(resnet.children())[:-2])
+    def forward(self, x):
+        return self.features(x)
+
+class _PatchEmbedding(nn.Module):
+    """Matches original PatchEmbedding class from new_ntau.pth training."""
+    def __init__(self, in_channels=2048, embed_dim=768):
+        super().__init__()
+        self.proj = nn.Conv2d(in_channels, embed_dim, 1)
+    def forward(self, x):
+        x = self.proj(x)
+        B, C, H, W = x.shape
+        return x.flatten(2).transpose(1, 2)
+
+class _TransformerEncoder(nn.Module):
+    """Matches original TransformerEncoder class from new_ntau.pth training."""
+    def __init__(self, embed_dim=768, heads=8, depth=6):
+        super().__init__()
         layer = nn.TransformerEncoderLayer(
-            d_model=768, nhead=8, dim_feedforward=2048, batch_first=True)
-        self.transformer = nn.TransformerEncoder(layer, num_layers=6)
+            d_model=embed_dim, nhead=heads,
+            dim_feedforward=2048, batch_first=True)
+        self.encoder = nn.TransformerEncoder(layer, depth)
+    def forward(self, x):
+        return self.encoder(x)
+
+class ResNetViT_Legacy(nn.Module):
+    """
+    Must match the original ResNetViT class EXACTLY as saved in new_ntau.pth.
+    Keys: backbone.features.X, patch_embed.proj.X, transformer.encoder.X,
+          norm.X, dropout, fc.X
+    """
+    def __init__(self, num_classes=2):
+        super().__init__()
+        self.backbone    = _ResNetBackbone()
+        self.patch_embed = _PatchEmbedding()
+        self.transformer = _TransformerEncoder()
         self.norm        = nn.LayerNorm(768)
         self.dropout     = nn.Dropout(0.3)
         self.fc          = nn.Linear(768, num_classes)
 
     def forward(self, x):
         x = self.backbone(x)
-        x = self.patch_embed(x).flatten(2).transpose(1, 2)
-        x = self.transformer(x).mean(dim=1)
-        return self.fc(self.dropout(self.norm(x)))
+        x = self.patch_embed(x)
+        x = self.transformer(x)
+        x = x.mean(dim=1)
+        x = self.norm(x)
+        x = self.dropout(x)
+        return self.fc(x)
 
 
 # ── Shared conv block ────────────────────────────────────────────────────────
@@ -163,14 +208,20 @@ class HybridNet(nn.Module):
 #  MODEL DOWNLOAD
 # ══════════════════════════════════════════════════════════════════════════════
 def download_model(path: str) -> None:
+    """Download model from its specific Drive file ID if not already present."""
     if not os.path.exists(path):
-        with st.spinner(f"Downloading {path} — please wait…"):
+        fname   = os.path.basename(path)
+        file_id = MODEL_DRIVE_IDS.get(fname)
+        if file_id is None:
+            st.error(f"No Drive file ID configured for: {fname}")
+            st.stop()
+        with st.spinner(f"Downloading {fname} — please wait…"):
             try:
                 gdown.download(
-                    f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}",
+                    f"https://drive.google.com/uc?id={file_id}",
                     path, quiet=False,
                 )
-                st.success(f"Downloaded {path}")
+                st.success(f"Downloaded {fname}")
             except Exception as exc:
                 st.error(f"Download failed: {exc}")
                 st.info("Ensure the Google Drive file is shared as 'Anyone with the link'.")
@@ -215,9 +266,11 @@ def load_model(model_path: str):
         nc         = 2
         bt         = None
         keys       = list(state_dict.keys())
-        if any('backbone.features' in k for k in keys):
+        if any('backbone.' in k for k in keys) and any('transformer.' in k for k in keys):
             mn = 'ResNetViT_Legacy'
         elif any('transformer.encoder' in k for k in keys):
+            mn = 'ResNetViT_Legacy'
+        elif any('backbone.features' in k for k in keys):
             mn = 'ResNetViT_Legacy'
         elif any('enc1' in k for k in keys):
             mn = 'MiniSegNet'
@@ -261,7 +314,20 @@ def load_model(model_path: str):
         st.error(f"Unknown model name in checkpoint: {mn}")
         st.stop()
 
-    m.load_state_dict(state_dict, strict=False)
+    # Load weights — strict=True catches mismatches immediately
+    try:
+        m.load_state_dict(state_dict, strict=True)
+    except RuntimeError as e:
+        # Show which keys mismatched so we can debug
+        missing  = [k for k in state_dict if k not in m.state_dict()]
+        extra    = [k for k in m.state_dict() if k not in state_dict]
+        st.error(
+            f"Weight mismatch loading {mn}.\n"
+            f"Missing keys ({len(missing)}): {missing[:5]}\n"
+            f"Extra keys ({len(extra)}): {extra[:5]}\n"
+            f"Full error: {e}"
+        )
+        st.stop()
     return m.to(device).eval(), classes, mn, device
 
 
@@ -305,10 +371,10 @@ def get_gradcam_layer(model, mn):
     """Returns the target conv layer for GradCAM. Robust to model structure."""
     try:
         if mn == 'ResNetViT_Legacy':
-            # backbone is nn.Sequential of ResNet children[:-2]
-            # last element is layer4, last block is Bottleneck, target conv3
-            layer4     = model.backbone[-1]          # layer4
-            last_block = list(layer4.children())[-1] # last Bottleneck
+            # backbone.features is nn.Sequential of ResNet children[:-2]
+            # last element is layer4, last Bottleneck block
+            layer4     = model.backbone.features[-1]
+            last_block = list(layer4.children())[-1]
             return last_block.conv3
 
         elif mn == 'ResNet50':
@@ -391,8 +457,11 @@ def predict(model, device, classes, mn, pil_image):
             cam_map = gc.generate(fresh, class_idx, device)
             if cam_map is not None and cam_map.max() > 0:
                 overlay, heatmap = apply_colormap(img_rgb, cam_map)
-        except Exception:
-            pass
+        except Exception as _gc_err:
+            # Store error for display in UI
+            overlay  = None
+            heatmap  = None
+            _gradcam_error = str(_gc_err)
 
     return {
         'prediction':     classes[class_idx],
@@ -745,11 +814,29 @@ with st.sidebar:
         list(MODEL_FILES.keys()),
         index=0,
         label_visibility='collapsed',
+        help="All models trained on irfansheriff/parkinsons-brain-mri-dataset (20260315)"
     )
     MODEL_PATH = MODEL_FILES[model_choice]
 
     # Download if not present
     download_model(MODEL_PATH)
+
+    # Debug info — shows exactly what's in the checkpoint
+    if os.path.exists(MODEL_PATH):
+        try:
+            _ck = torch.load(MODEL_PATH, map_location='cpu', weights_only=False)
+            if isinstance(_ck, dict) and 'model_state_dict' in _ck:
+                st.caption(
+                    f"✓ Checkpoint: {_ck.get('model_name','?')} | "
+                    f"classes={_ck.get('classes','?')} | "
+                    f"acc={_ck.get('val_acc', _ck.get('test_accuracy','?'))}"
+                )
+            else:
+                keys = list(_ck.keys()) if isinstance(_ck, dict) else []
+                st.caption(f"Legacy checkpoint | {len(keys)} keys")
+            del _ck
+        except Exception as ex:
+            st.caption(f"Could not inspect: {ex}")
 
     st.success(
         f"**Active:** {model_choice}\n\n"
