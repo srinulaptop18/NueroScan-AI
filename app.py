@@ -476,6 +476,7 @@ def predict(model, device, classes, mn, pil_image):
         'timestamp':      datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'image':          img_rgb,
         'model_name':     mn,
+        '_probs_np':      probs_np,   # raw probs for ensemble
     }
 
 
@@ -483,6 +484,7 @@ def predict(model, device, classes, mn, pil_image):
 #  PDF REPORT
 # ══════════════════════════════════════════════════════════════════════════════
 def build_pdf(patient, result):
+    """Gold-themed PDF report matching the royal UI aesthetic."""
     buf    = io.BytesIO()
     doc    = SimpleDocTemplate(buf, pagesize=letter,
                                leftMargin=0.75*inch, rightMargin=0.75*inch,
@@ -490,45 +492,111 @@ def build_pdf(patient, result):
     story  = []
     styles = getSampleStyleSheet()
 
-    title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=20,
-        textColor=colors.HexColor('#0d2b5e'), spaceAfter=6,
-        alignment=TA_CENTER, fontName='Helvetica-Bold')
-    sub_s   = ParagraphStyle('S', parent=styles['Normal'], fontSize=10,
-        textColor=colors.HexColor('#3a7bd5'), spaceAfter=20, alignment=TA_CENTER)
-    head_s  = ParagraphStyle('H', parent=styles['Heading2'], fontSize=13,
-        textColor=colors.HexColor('#0d2b5e'), spaceAfter=8,
-        spaceBefore=14, fontName='Helvetica-Bold')
-    body_s  = ParagraphStyle('B', parent=styles['Normal'], fontSize=10,
-        textColor=colors.HexColor('#1a1a2e'), leading=14)
-    warn_s  = ParagraphStyle('W', parent=styles['Normal'], fontSize=9,
+    # ── Gold colour palette ───────────────────────────────────────────────────
+    GOLD        = colors.HexColor('#b8860b')
+    GOLD_DARK   = colors.HexColor('#7a4f00')
+    GOLD_LIGHT  = colors.HexColor('#fdf3dc')
+    PARCHMENT   = colors.HexColor('#fdf8f0')
+    DEEP        = colors.HexColor('#2c1a00')
+    MIDGOLD     = colors.HexColor('#c9a84c')
+    CRIMSON     = colors.HexColor('#c0392b')
+    EMERALD     = colors.HexColor('#1a6a38')
+    GREY_TEXT   = colors.HexColor('#7a5a1a')
+
+    # ── Paragraph styles ──────────────────────────────────────────────────────
+    title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=22,
+        textColor=GOLD_DARK, spaceAfter=2, alignment=TA_CENTER,
+        fontName='Helvetica-Bold')
+    subtitle_s = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9,
+        textColor=GOLD, spaceAfter=4, alignment=TA_CENTER,
+        fontName='Helvetica')
+    project_s = ParagraphStyle('Proj', parent=styles['Normal'], fontSize=10,
+        textColor=DEEP, spaceAfter=16, alignment=TA_CENTER,
+        fontName='Helvetica-Bold')
+    head_s = ParagraphStyle('H', parent=styles['Heading2'], fontSize=12,
+        textColor=GOLD_DARK, spaceAfter=6, spaceBefore=12,
+        fontName='Helvetica-Bold')
+    body_s = ParagraphStyle('B', parent=styles['Normal'], fontSize=10,
+        textColor=DEEP, leading=14)
+    warn_s = ParagraphStyle('W', parent=styles['Normal'], fontSize=9,
         textColor=colors.HexColor('#7f1d1d'), leading=13,
         backColor=colors.HexColor('#fff1f1'), borderPad=6)
+    foot_s = ParagraphStyle('F', parent=styles['Normal'], fontSize=8,
+        textColor=GREY_TEXT, alignment=TA_CENTER)
 
-    story.append(Paragraph('NeuroScan AI', title_s))
-    story.append(Paragraph("Parkinson's Disease MRI Analysis Report", sub_s))
-
-    def tbl(rows, col_widths):
-        t = Table(rows, colWidths=col_widths)
+    # ── Gold divider helper ───────────────────────────────────────────────────
+    def gold_line():
+        t = Table([['', '', '']], colWidths=[0.5*inch, 6.5*inch, 0.5*inch])
         t.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,0), colors.HexColor('#0d2b5e')),
-            ('TEXTCOLOR',     (0,0),(-1,0), colors.white),
-            ('FONTNAME',      (0,0),(-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE',      (0,0),(-1,0), 11),
-            ('BOTTOMPADDING', (0,0),(-1,0), 9),
-            ('TOPPADDING',    (0,0),(-1,0), 9),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1),
-             [colors.HexColor('#f0f6ff'), colors.white]),
-            ('GRID',          (0,0),(-1,-1), 0.5, colors.HexColor('#cbd5e1')),
-            ('FONTNAME',      (0,1),(-1,-1), 'Helvetica'),
-            ('FONTSIZE',      (0,1),(-1,-1), 10),
-            ('TOPPADDING',    (0,1),(-1,-1), 7),
-            ('BOTTOMPADDING', (0,1),(-1,-1), 7),
-            ('LEFTPADDING',   (0,0),(-1,-1), 10),
+            ('LINEABOVE',  (1,0),(1,0), 1, MIDGOLD),
+            ('ALIGN',      (0,0),(-1,-1), 'CENTER'),
+            ('TOPPADDING', (0,0),(-1,-1), 0),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 4),
         ]))
         return t
 
+    # ── Gold table helper ─────────────────────────────────────────────────────
+    def gold_tbl(rows, col_widths):
+        t = Table(rows, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            # Header row — dark gold
+            ('BACKGROUND',     (0,0),(-1,0), GOLD_DARK),
+            ('TEXTCOLOR',      (0,0),(-1,0), colors.white),
+            ('FONTNAME',       (0,0),(-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0,0),(-1,0), 10),
+            ('BOTTOMPADDING',  (0,0),(-1,0), 8),
+            ('TOPPADDING',     (0,0),(-1,0), 8),
+            # Alternating parchment / white rows
+            ('ROWBACKGROUNDS', (0,1),(-1,-1), [GOLD_LIGHT, PARCHMENT]),
+            # Grid in gold
+            ('GRID',           (0,0),(-1,-1), 0.4, MIDGOLD),
+            ('FONTNAME',       (0,1),(-1,-1), 'Helvetica'),
+            ('FONTSIZE',       (0,1),(-1,-1), 10),
+            ('TEXTCOLOR',      (0,1),(-1,-1), DEEP),
+            ('TOPPADDING',     (0,1),(-1,-1), 6),
+            ('BOTTOMPADDING',  (0,1),(-1,-1), 6),
+            ('LEFTPADDING',    (0,0),(-1,-1), 10),
+            # Left column label styling
+            ('FONTNAME',       (0,1),(0,-1), 'Helvetica-Bold'),
+            ('TEXTCOLOR',      (0,1),(0,-1), GOLD_DARK),
+        ]))
+        return t
+
+    # ════════════════════════════════════════════════
+    #  HEADER
+    # ════════════════════════════════════════════════
+    story.append(Paragraph('NeuroScan AI', title_s))
+    story.append(Paragraph("Parkinson's Disease MRI Analysis Report", subtitle_s))
+    story.append(Paragraph(
+        'PARKINSONS DISEASE DETECTION USING DEEP LEARNING ON BRAIN MRI',
+        project_s))
+    story.append(gold_line())
+    story.append(Spacer(1, 4))
+
+    # Diagnosis verdict banner
+    is_parkinson = result.get('is_parkinson', False)
+    diag_color   = CRIMSON if is_parkinson else EMERALD
+    diag_text    = result['prediction'].upper()
+    verdict_tbl  = Table([[diag_text]], colWidths=[7*inch])
+    verdict_tbl.setStyle(TableStyle([
+        ('BACKGROUND',     (0,0),(-1,-1), diag_color),
+        ('TEXTCOLOR',      (0,0),(-1,-1), colors.white),
+        ('FONTNAME',       (0,0),(-1,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',       (0,0),(-1,-1), 16),
+        ('ALIGN',          (0,0),(-1,-1), 'CENTER'),
+        ('TOPPADDING',     (0,0),(-1,-1), 10),
+        ('BOTTOMPADDING',  (0,0),(-1,-1), 10),
+        ('ROUNDEDCORNERS', [4, 4, 4, 4]),
+    ]))
+    story.append(verdict_tbl)
+    story.append(Spacer(1, 10))
+
+    # ════════════════════════════════════════════════
+    #  PATIENT INFORMATION
+    # ════════════════════════════════════════════════
     story.append(Paragraph('Patient Information', head_s))
-    story.append(tbl([
+    story.append(gold_line())
+    story.append(gold_tbl([
         ['Field',            'Details'],
         ['Patient Name',     patient['name']],
         ['Patient ID',       patient['patient_id']],
@@ -536,15 +604,20 @@ def build_pdf(patient, result):
         ['Gender',           patient['gender']],
         ['Scan Date',        patient['scan_date']],
         ['Referring Doctor', patient.get('doctor', '—')],
-    ], [2*inch, 4.5*inch]))
+    ], [2.2*inch, 4.8*inch]))
 
     if patient.get('medical_history', '').strip():
         story.append(Spacer(1, 8))
         story.append(Paragraph('Medical History', head_s))
+        story.append(gold_line())
         story.append(Paragraph(patient['medical_history'], body_s))
 
+    # ════════════════════════════════════════════════
+    #  AI RESULTS
+    # ════════════════════════════════════════════════
     story.append(Paragraph('AI Analysis Results', head_s))
-    story.append(tbl([
+    story.append(gold_line())
+    story.append(gold_tbl([
         ['Metric',                   'Value'],
         ['Diagnosis',                result['prediction']],
         ['Confidence Score',         f"{result['confidence']:.2f}%"],
@@ -553,16 +626,40 @@ def build_pdf(patient, result):
         ['Risk Level',               result['risk_level']],
         ['Analysis Time',            result['timestamp']],
         ['AI Model',                 result['model_name']],
-    ], [2.5*inch, 4*inch]))
+    ], [2.8*inch, 4.2*inch]))
 
-    story.append(Spacer(1, 14))
+    # ════════════════════════════════════════════════
+    #  ALL MODELS RESULTS (if available)
+    # ════════════════════════════════════════════════
+    all_mr = result.get('_all_model_results')
+    if all_mr:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph('All Models Comparison', head_s))
+        story.append(gold_line())
+        rows = [['Model', 'Prediction', 'Confidence', "Parkinson's %", 'Normal %', 'Risk']]
+        for mname, mr in all_mr.items():
+            rows.append([
+                mname,
+                mr['prediction'],
+                f"{mr['confidence']:.1f}%",
+                f"{mr['parkinson_prob']:.1f}%",
+                f"{mr['normal_prob']:.1f}%",
+                mr['risk_level'],
+            ])
+        story.append(gold_tbl(rows, [1.6*inch, 1.1*inch, 1*inch, 1.1*inch, 1*inch, 0.8*inch]))
+
+    # ════════════════════════════════════════════════
+    #  BRAIN MRI + GRAD-CAM
+    # ════════════════════════════════════════════════
+    story.append(Spacer(1, 10))
     story.append(Paragraph('Brain MRI Scan & Grad-CAM Heatmap', head_s))
+    story.append(gold_line())
 
     img_buf = io.BytesIO()
     result['image'].save(img_buf, 'PNG')
     img_buf.seek(0)
 
-    if result['cam_overlay'] is not None:
+    if result.get('cam_overlay') is not None:
         cam_buf = io.BytesIO()
         result['cam_overlay'].save(cam_buf, 'PNG')
         cam_buf.seek(0)
@@ -578,30 +675,38 @@ def build_pdf(patient, result):
         cap_txt = 'Original MRI Scan'
 
     img_tbl.setStyle(TableStyle([
-        ('ALIGN',  (0,0),(-1,-1), 'CENTER'),
-        ('VALIGN', (0,0),(-1,-1), 'MIDDLE'),
-        ('BOX',    (0,0),(-1,-1), 0, colors.white),
+        ('ALIGN',            (0,0),(-1,-1), 'CENTER'),
+        ('VALIGN',           (0,0),(-1,-1), 'MIDDLE'),
+        ('BOX',              (0,0),(-1,-1), 1.5, MIDGOLD),
+        ('BACKGROUND',       (0,0),(-1,-1), PARCHMENT),
     ]))
     story.append(img_tbl)
-    caption_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=8,
-        textColor=colors.grey, alignment=TA_CENTER, spaceBefore=4)
-    story.append(Paragraph(cap_txt, caption_s))
-    story.append(Spacer(1, 16))
+    cap_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=8,
+        textColor=GOLD, alignment=TA_CENTER, spaceBefore=4)
+    story.append(Paragraph(cap_txt, cap_s))
+
+    # ════════════════════════════════════════════════
+    #  DISCLAIMER + FOOTER
+    # ════════════════════════════════════════════════
+    story.append(Spacer(1, 14))
+    story.append(gold_line())
     story.append(Paragraph(
         '⚠️ DISCLAIMER: This report is generated by an AI system for research and '
         'educational purposes only. It must NOT replace clinical diagnosis by a '
         'qualified medical professional. Always consult a licensed neurologist.',
         warn_s))
-    story.append(Spacer(1, 20))
-    footer_s = ParagraphStyle('F', parent=styles['Normal'], fontSize=8,
-        textColor=colors.grey, alignment=TA_CENTER)
+    story.append(Spacer(1, 16))
+    story.append(gold_line())
+    story.append(Spacer(1, 4))
     story.append(Paragraph(
-        f"NeuroScan AI · BVC College of Engineering, Palacharla · "
-        f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", footer_s))
+        f"NeuroScan AI | Parkinson's Disease Detection | BVC College of Engineering, Palacharla | "
+        # (collapsed into line above)
+        f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        foot_s))
+
     doc.build(story)
     buf.seek(0)
     return buf.read()
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELPERS
@@ -745,6 +850,16 @@ st.markdown(
     '<div style="font-family:Cormorant Garamond,serif;font-size:1rem;font-style:italic;'
     'color:#9a7030;letter-spacing:4px;text-align:center;">'
     "Parkinson's Detection · Brain MRI · Deep Learning</div>"
+    # ── Project title ──────────────────────────────────────────────────
+    '<div style="background:linear-gradient(135deg,rgba(184,134,11,0.12),rgba(184,134,11,0.06));'
+    'border:1px solid rgba(184,134,11,0.35);border-radius:8px;'
+    'padding:.7rem 2rem;margin-top:.3rem;position:relative;overflow:hidden;">'
+    '<div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(232,201,106,0.08),transparent);"></div>'
+    '<div style="font-family:Cinzel,serif;font-size:.95rem;font-weight:700;'
+    'color:#7a4f00;letter-spacing:3px;text-align:center;text-transform:uppercase;'
+    'text-shadow:0 1px 4px rgba(184,134,11,0.2);position:relative;z-index:1;">'
+    'Parkinson\u2019s Disease Detection Using Deep Learning on Brain MRI'
+    '</div></div>'
     '<div style="display:flex;align-items:center;gap:1rem;width:60%;max-width:400px;">'
     '<div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#c9a84c);"></div>'
     '<span style="color:#b8860b;font-size:.7rem;letter-spacing:4px;">✦</span>'
@@ -945,7 +1060,7 @@ with tab_scan:
                     st.cache_resource.clear()
                     st.session_state['last_model'] = MODEL_PATH
 
-                with st.spinner('Running AI analysis…'):
+                with st.spinner('Running all 6 models + ensemble…'):
                     st.session_state.patient_data = {
                         'name':            patient_name.strip(),
                         'age':             patient_age,
@@ -956,11 +1071,58 @@ with tab_scan:
                         'medical_history': medical_history.strip(),
                     }
                     try:
-                        model, classes, mn, device = load_model(MODEL_PATH)
-                        result = predict(model, device, classes, mn, image)
-                        st.session_state.prediction_result = result
-                        st.session_state.prediction_made   = True
-                        st.success('Analysis complete!')
+                        # ── Run every model and collect results ───────────────
+                        all_model_results = {}
+                        all_probs_list    = []
+                        ensemble_weights  = [0.8, 0.9, 0.8, 0.6, 1.2, 1.2]
+                        model_order       = list(MODEL_FILES.keys())
+
+                        for idx_m, (mc, mpath) in enumerate(MODEL_FILES.items()):
+                            download_model(mpath)
+                            m, cls, mn, dev = load_model(mpath)
+                            r = predict(m, dev, cls, mn, image)
+                            all_model_results[mc] = r
+                            all_probs_list.append(r['_probs_np'])
+
+                        # ── Ensemble ──────────────────────────────────────────
+                        import numpy as _np
+                        ens_p     = _np.average(_np.stack(all_probs_list),
+                                                axis=0, weights=ensemble_weights)
+                        ens_idx   = int(ens_p.argmax())
+                        ens_conf  = float(ens_p[ens_idx] * 100)
+                        # Use classes from first model
+                        first_cls = list(all_model_results.values())[0]
+                        ens_cls   = first_cls['prediction'][:1]  # placeholder
+                        _cls_list = cls  # last loaded classes
+                        ens_label = _cls_list[ens_idx]
+                        # Find parkinson index
+                        _park_idx = next(
+                            (i for i, c in enumerate(_cls_list) if 'parkinson' in c.lower()), 1)
+                        ens_is_pk = (ens_idx == _park_idx)
+                        ens_norm_p  = float(ens_p[1-_park_idx] * 100) if len(ens_p)>1 else 0.0
+                        ens_park_p  = float(ens_p[_park_idx]   * 100)
+                        ens_risk = ('High' if ens_conf >= 85 else 'Moderate') if ens_is_pk else 'Low'
+                        ens_result = {
+                            'prediction':     ens_label,
+                            'class_idx':      ens_idx,
+                            'is_parkinson':   ens_is_pk,
+                            'confidence':     ens_conf,
+                            'normal_prob':    ens_norm_p,
+                            'parkinson_prob': ens_park_p,
+                            'risk_level':     ens_risk,
+                            'cam_overlay':    None,
+                            'cam_heatmap':    None,
+                            'timestamp':      datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'image':          list(all_model_results.values())[0]['image'],
+                            'model_name':     'Ensemble',
+                        }
+
+                        # Store everything in session
+                        st.session_state.all_model_results  = all_model_results
+                        st.session_state.ensemble_result    = ens_result
+                        st.session_state.prediction_result  = ens_result   # default display
+                        st.session_state.prediction_made    = True
+                        st.success('All models analysed!')
                         st.balloons()
                         st.rerun()
                     except Exception as exc:
@@ -1030,6 +1192,36 @@ with tab_scan:
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Grad-CAM
+        # ── All models comparison ────────────────────────────────────────
+        if st.session_state.get('all_model_results'):
+            st.markdown('<div class="sec-head">✦ All Models Comparison</div>', unsafe_allow_html=True)
+            amr = st.session_state.all_model_results
+            ens = st.session_state.ensemble_result
+            cols_hdr = st.columns(len(amr)+1)
+            model_display_names = list(amr.keys()) + ['Ensemble']
+            all_display = {**amr, 'Ensemble': ens}
+            for ci, mname in enumerate(model_display_names):
+                mr = all_display[mname]
+                is_pk = mr.get('is_parkinson', False)
+                badge_col = '#f87171' if is_pk else '#4ade80'
+                badge_txt = 'PARKINSON' if is_pk else 'NORMAL'
+                with cols_hdr[ci]:
+                    st.markdown(
+                        f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
+                        f'border:1px solid rgba(184,134,11,0.2);border-radius:10px;'
+                        f'padding:.8rem .5rem;text-align:center;'
+                        f'border-top:3px solid {badge_col};">'
+                        f'<div style="font-family:Cinzel,serif;font-size:.58rem;'
+                        f'color:#9a7030;letter-spacing:1px;margin-bottom:.4rem;">'
+                        f'{mname}</div>'
+                        f'<div style="font-family:Playfair Display,serif;font-size:1.1rem;'
+                        f'font-weight:700;color:{badge_col};">{badge_txt}</div>'
+                        f'<div style="font-family:Cinzel,serif;font-size:.65rem;'
+                        f'color:#7a5a1a;margin-top:.3rem;">{mr["confidence"]:.1f}%</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
         if r['cam_overlay'] is not None:
             st.markdown(
                 '<div class="sec-head">✦ Grad-CAM Explainability</div>',
@@ -1068,9 +1260,16 @@ with tab_scan:
             if st.button('📜 Generate PDF Report'):
                 with st.spinner('Building royal report…'):
                     try:
+                        # Attach all-model results to pass into PDF
+                        _pdf_result = dict(st.session_state.prediction_result)
+                        if st.session_state.get('all_model_results'):
+                            _pdf_result['_all_model_results'] = {
+                                k: {kk: vv for kk, vv in v.items() if not kk.startswith('_')}
+                                for k, v in st.session_state.all_model_results.items()
+                            }
                         pdf_bytes = build_pdf(
                             st.session_state.patient_data,
-                            st.session_state.prediction_result,
+                            _pdf_result,
                         )
                         p     = st.session_state.patient_data
                         fname = f"NeuroScan_{p['patient_id']}_{datetime.now().strftime('%Y%m%d')}.pdf"
