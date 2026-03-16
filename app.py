@@ -231,7 +231,6 @@ def download_model(path: str) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 #  LOAD MODEL  — handles OLD (raw state_dict) and NEW (full checkpoint) formats
 # ══════════════════════════════════════════════════════════════════════════════
-@st.cache_resource(show_spinner="Loading AI model…")
 def load_model(model_path: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -969,6 +968,13 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.warning("⚠️ For **research/academic** purposes only. Not for clinical diagnosis.")
+    st.markdown(
+        '<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
+        'letter-spacing:1px;text-align:center;margin-top:.5rem;">'
+        '💡 Models load one at a time to stay within memory limits'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 # MODEL_PATH used for single-model fallback (batch, report etc.)
 # All models are downloaded & run at analyze time
@@ -1100,62 +1106,97 @@ with tab_scan:
                         'medical_history': medical_history.strip(),
                     }
                     try:
-                        # ── Run every model and collect results ───────────────
+                        # ── Memory-safe: load → predict → DELETE each model ───
+                        # Only ONE model lives in RAM at a time.
+                        # Streamlit Cloud limit: ~800 MB RAM
                         all_model_results = {}
                         all_probs_list    = []
                         ensemble_weights  = [0.8, 0.9, 0.8, 0.6, 1.2, 1.2]
-                        model_order       = list(MODEL_FILES.keys())
+                        _prog = st.progress(0)
+                        _stat = st.empty()
+                        _cls_list = None
+                        _first_img = None
 
-                        for idx_m, (mc, mpath) in enumerate(MODEL_FILES.items()):
-                            download_model(mpath)
-                            m, cls, mn, dev = load_model(mpath)
-                            r = predict(m, dev, cls, mn, image)
-                            all_model_results[mc] = r
-                            all_probs_list.append(r['_probs_np'])
+                        for _idx_m, (_mc, _mpath) in enumerate(MODEL_FILES.items()):
+                            _stat.markdown(
+                                f'<p style="font-family:Cinzel,serif;font-size:.75rem;'
+                                f'color:#c9a84c;">Running {_mc} ({_idx_m+1}/'
+                                f'{len(MODEL_FILES)})…</p>',
+                                unsafe_allow_html=True
+                            )
+                            # 1. Download if needed
+                            download_model(_mpath)
+
+                            # 2. Load model — NOT cached, fresh each time
+                            _m, _cls, _mn, _dev = load_model(_mpath)
+                            _cls_list = _cls
+
+                            # 3. Predict
+                            _r = predict(_m, _dev, _cls, _mn, image)
+                            if _first_img is None:
+                                _first_img = _r['image']
+                            all_model_results[_mc] = _r
+                            all_probs_list.append(_r['_probs_np'])
+
+                            # 4. DELETE model immediately — free RAM
+                            del _m
+                            import gc as _gc
+                            _gc.collect()
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+
+                            _prog.progress((_idx_m + 1) / len(MODEL_FILES))
+
+                        _stat.empty()
+                        _prog.empty()
 
                         # ── Ensemble ──────────────────────────────────────────
-                        import numpy as _np
-                        ens_p     = _np.average(_np.stack(all_probs_list),
-                                                axis=0, weights=ensemble_weights)
-                        ens_idx   = int(ens_p.argmax())
-                        ens_conf  = float(ens_p[ens_idx] * 100)
-                        # Use classes from first model
-                        first_cls = list(all_model_results.values())[0]
-                        ens_cls   = first_cls['prediction'][:1]  # placeholder
-                        _cls_list = cls  # last loaded classes
-                        ens_label = _cls_list[ens_idx]
-                        # Find parkinson index
+                        _ens_p    = np.average(np.stack(all_probs_list),
+                                               axis=0, weights=ensemble_weights)
+                        _ens_idx  = int(_ens_p.argmax())
+                        _ens_conf = float(_ens_p[_ens_idx] * 100)
                         _park_idx = next(
                             (i for i, c in enumerate(_cls_list) if 'parkinson' in c.lower()), 1)
-                        ens_is_pk = (ens_idx == _park_idx)
-                        ens_norm_p  = float(ens_p[1-_park_idx] * 100) if len(ens_p)>1 else 0.0
-                        ens_park_p  = float(ens_p[_park_idx]   * 100)
-                        ens_risk = ('High' if ens_conf >= 85 else 'Moderate') if ens_is_pk else 'Low'
+                        _norm_idx = 1 - _park_idx if len(_cls_list) > 1 else 0
+                        _ens_is_pk   = (_ens_idx == _park_idx)
+                        _ens_label   = _cls_list[_ens_idx]
+                        _ens_norm_p  = float(_ens_p[_norm_idx] * 100)
+                        _ens_park_p  = float(_ens_p[_park_idx] * 100)
+                        _ens_risk    = ('High' if _ens_conf >= 85 else 'Moderate') if _ens_is_pk else 'Low'
+
                         ens_result = {
-                            'prediction':     ens_label,
-                            'class_idx':      ens_idx,
-                            'is_parkinson':   ens_is_pk,
-                            'confidence':     ens_conf,
-                            'normal_prob':    ens_norm_p,
-                            'parkinson_prob': ens_park_p,
-                            'risk_level':     ens_risk,
-                            'cam_overlay':    None,
-                            'cam_heatmap':    None,
-                            'timestamp':      datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'image':          list(all_model_results.values())[0]['image'],
-                            'model_name':     'Ensemble',
+                            'prediction':   _ens_label,
+                            'class_idx':    _ens_idx,
+                            'is_parkinson': _ens_is_pk,
+                            'confidence':   _ens_conf,
+                            'normal_prob':  _ens_norm_p,
+                            'parkinson_prob': _ens_park_p,
+                            'risk_level':   _ens_risk,
+                            'cam_overlay':  None,
+                            'cam_heatmap':  None,
+                            'timestamp':    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'image':        _first_img,
+                            'model_name':   'Ensemble (6 models)',
                         }
 
-                        # Store everything in session
-                        st.session_state.all_model_results  = all_model_results
-                        st.session_state.ensemble_result    = ens_result
-                        st.session_state.prediction_result  = ens_result   # default display
-                        st.session_state.prediction_made    = True
-                        st.success('All models analysed!')
+                        # Store only lightweight results (no model objects)
+                        # Strip large tensors from results before storing
+                        _lite_results = {}
+                        for _k, _v in all_model_results.items():
+                            _lite_results[_k] = {
+                                kk: vv for kk, vv in _v.items()
+                                if kk not in ('_probs_np',)
+                            }
+
+                        st.session_state.all_model_results = _lite_results
+                        st.session_state.ensemble_result   = ens_result
+                        st.session_state.prediction_result = ens_result
+                        st.session_state.prediction_made   = True
+                        st.success('All 6 models analysed!')
                         st.balloons()
                         st.rerun()
-                    except Exception as exc:
-                        st.error(f'Error during analysis: {exc}')
+                    except Exception as _exc:
+                        st.error(f'Error during analysis: {_exc}')
 
     # ── RESULTS ──────────────────────────────────────────────────────────────
     if st.session_state.prediction_made:
@@ -1360,6 +1401,11 @@ with tab_batch:
                 except Exception as exc:
                     st.warning(f'Skipped {f.name}: {exc}')
                 prog.progress((i+1) / len(batch_files))
+
+            # Delete batch model to free RAM
+            del model
+            import gc as _gc; _gc.collect()
+            if torch.cuda.is_available(): torch.cuda.empty_cache()
 
             st.session_state.batch_results = batch_results
             status.empty()
