@@ -557,7 +557,7 @@ def build_pdf(patient, result):
     story.append(gold_line())
     story.append(Spacer(1, 4))
     story.append(Paragraph(
-        f"NeuroScan AI | Parkinson's Disease Detection | BVC College of Engineering, Palacharla | "
+        f"NeuroScan AI | Parkinson's Disease Detection | BVC College of Engineering, Rajahmundry | "
         # (collapsed into line above)
         f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         foot_s))
@@ -1477,234 +1477,208 @@ with tab_batch:
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_about:
     college_logo = get_logo_b64('bvcr.jpg')
-    clg_html = (
-        f'<img src="{college_logo}" style="width:110px;height:110px;object-fit:contain;'
-        f'margin-bottom:1.2rem;border:2px solid rgba(184,134,11,0.45);border-radius:10px;'
-        f'box-shadow:0 6px 24px rgba(184,134,11,0.18);"/>'
-        if college_logo else
-        '<div style="font-size:4rem;margin-bottom:1.2rem;">🏛</div>'
-    )
+    if college_logo:
+        clg_html = (
+            '<img src="' + college_logo + '" style="width:110px;height:110px;object-fit:contain;'
+            'margin-bottom:1.2rem;border:2px solid rgba(184,134,11,0.45);border-radius:10px;'
+            'box-shadow:0 6px 24px rgba(184,134,11,0.18);"/>'
+        )
+    else:
+        clg_html = '<div style="font-size:4rem;margin-bottom:1.2rem;">🏛</div>'
 
-    # ── COLLEGE HERO BANNER ───────────────────────────────────────────────────
     st.markdown(
-        f'<div style="background:linear-gradient(160deg,#fdf3dc 0%,#fdf8f0 50%,#fce8b0 100%);'
-        f'border:1px solid rgba(184,134,11,0.28);border-radius:16px;'
-        f'padding:3rem 2.5rem 2.5rem;margin-bottom:2rem;text-align:center;'
-        f'position:relative;overflow:hidden;">'
-        f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
-        f'background:linear-gradient(90deg,transparent,#c9a84c,#f0d070,#c9a84c,transparent);"></div>'
-        f'<div style="position:absolute;inset:0;opacity:0.03;font-size:8rem;display:flex;'
-        f'align-items:center;justify-content:center;color:#b8860b;font-family:Cinzel,serif;'
-        f'pointer-events:none;letter-spacing:20px;">✦BVC✦</div>'
+        '<div style="background:linear-gradient(160deg,#fdf3dc 0%,#fdf8f0 50%,#fce8b0 100%);'
+        'border:1px solid rgba(184,134,11,0.28);border-radius:16px;'
+        'padding:3rem 2.5rem 2.5rem;margin-bottom:2rem;text-align:center;'
+        'position:relative;overflow:hidden;">'
+        '<div style="position:absolute;top:0;left:0;right:0;height:3px;'
+        'background:linear-gradient(90deg,transparent,#c9a84c,#f0d070,#c9a84c,transparent);"></div>'
         + clg_html +
-        f'<div style="font-family:Cinzel,serif;font-size:1.9rem;font-weight:900;color:#2c1a00;'
-        f'letter-spacing:4px;margin-bottom:.5rem;text-shadow:0 2px 8px rgba(184,134,11,0.12);">'
-        f'BVC College of Engineering</div>'
-        f'<div style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:1.05rem;'
-        f'color:#b8860b;letter-spacing:3px;margin-bottom:.8rem;">Palacharla, Andhra Pradesh</div>'
-        f'<div style="display:flex;align-items:center;gap:1rem;justify-content:center;margin-bottom:1rem;">'
-        f'<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c);"></div>'
-        f'<span style="color:#b8860b;font-size:.8rem;letter-spacing:5px;">✦</span>'
-        f'<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,#c9a84c,transparent);"></div>'
-        f'</div>'
-        f'<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.2rem;">'
-        f'<span style="background:rgba(184,134,11,0.1);border:1px solid rgba(184,134,11,0.3);'
-        f'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
-        f'color:#7a4f00;letter-spacing:1.5px;font-weight:600;">🎓 Autonomous</span>'
-        f'<span style="background:rgba(30,132,73,0.08);border:1px solid rgba(30,132,73,0.25);'
-        f'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
-        f'color:#1a6a38;letter-spacing:1.5px;font-weight:600;">✓ NAAC A Grade</span>'
-        f'<span style="background:rgba(0,100,180,0.07);border:1px solid rgba(0,100,180,0.2);'
-        f'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
-        f'color:#004a90;letter-spacing:1.5px;font-weight:600;">⚙ AICTE Approved</span>'
-        f'<span style="background:rgba(140,40,40,0.07);border:1px solid rgba(140,40,40,0.2);'
-        f'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
-        f'color:#7a1a1a;letter-spacing:1.5px;font-weight:600;">📜 Affiliated to JNTUK</span>'
-        f'</div>'
-        f'<div style="font-family:EB Garamond,serif;font-size:1rem;color:#7a5a1a;line-height:1.8;'
-        f'max-width:680px;margin:0 auto;">'
-        f'BVC College of Engineering is a premier autonomous institution in Andhra Pradesh, '
-        f'recognized for academic excellence and cutting-edge research. With state-of-the-art '
-        f'laboratories, experienced faculty, and a legacy of producing distinguished engineers, '
-        f'the institution stands as a beacon of quality technical education in the region.'
-        f'</div>'
-        f'<div style="position:absolute;bottom:0;left:0;right:0;height:1px;'
-        f'background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3),transparent);"></div>'
-        f'</div>',
+        '<div style="font-family:Cinzel,serif;font-size:1.9rem;font-weight:900;color:#2c1a00;'
+        'letter-spacing:4px;margin-bottom:.4rem;">BVC College of Engineering</div>'
+        '<div style="font-family:Cormorant Garamond,serif;font-style:italic;'
+        'font-size:1.05rem;color:#b8860b;letter-spacing:3px;margin-bottom:.3rem;">'
+        'Rajahmundry, Andhra Pradesh</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#9a7030;margin-bottom:1rem;">'
+        '<a href="https://bvcr.edu.in" target="_blank" '
+        'style="color:#b8860b;text-decoration:none;border-bottom:1px solid rgba(184,134,11,0.4);">'
+        'bvcr.edu.in</a></div>'
+        '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.2rem;">'
+        '<span style="background:rgba(184,134,11,0.1);border:1px solid rgba(184,134,11,0.3);'
+        'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
+        'color:#7a4f00;letter-spacing:1.5px;font-weight:600;">🎓 Autonomous</span>'
+        '<span style="background:rgba(30,132,73,0.08);border:1px solid rgba(30,132,73,0.25);'
+        'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
+        'color:#1a6a38;letter-spacing:1.5px;font-weight:600;">✓ NAAC A Grade</span>'
+        '<span style="background:rgba(0,100,180,0.07);border:1px solid rgba(0,100,180,0.2);'
+        'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
+        'color:#004a90;letter-spacing:1.5px;font-weight:600;">⚙ AICTE Approved</span>'
+        '<span style="background:rgba(140,40,40,0.07);border:1px solid rgba(140,40,40,0.2);'
+        'border-radius:4px;padding:.35rem 1.1rem;font-family:Cinzel,serif;font-size:.68rem;'
+        'color:#7a1a1a;letter-spacing:1.5px;font-weight:600;">📜 Affiliated to JNTUK</span>'
+        '</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#7a5a1a;'
+        'line-height:1.8;max-width:700px;margin:0 auto;">'
+        'BVC College of Engineering, Rajahmundry is a premier autonomous institution '
+        'in Andhra Pradesh permanently affiliated to JNTUK. '
+        'Accredited by NAAC with A Grade and approved by AICTE, recognized for academic '
+        'excellence, state-of-the-art infrastructure, and outstanding placements.'
+        '</div>'
+        '<div style="position:absolute;bottom:0;left:0;right:0;height:1px;'
+        'background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3),transparent);"></div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
-    # ── INSTITUTE STATS ───────────────────────────────────────────────────────
     st.markdown('<div class="sec-head">✦ Institute at a Glance</div>', unsafe_allow_html=True)
-    s1, s2, s3, s4, s5 = st.columns(5)
-    for col, num, label, icon in [
-        (s1, '20+',  'Years of Excellence', '🏆'),
-        (s2, '3000+','Students Enrolled',   '👨‍🎓'),
-        (s3, '150+', 'Faculty Members',     '👨‍🏫'),
-        (s4, '10+',  'Departments',         '🏛'),
-        (s5, '95%',  'Placement Rate',      '💼'),
+    _s1, _s2, _s3, _s4, _s5 = st.columns(5)
+    for _col, _num, _lbl, _icon in [
+        (_s1, '25+',  'Years of Excellence', '🏆'),
+        (_s2, '3500+','Students Enrolled',   '🎓'),
+        (_s3, '200+', 'Faculty Members',     '👩\u200d🏫'),
+        (_s4, '9',    'Departments',         '🏛'),
+        (_s5, '95%',  'Placement Rate',      '💼'),
     ]:
-        with col:
+        with _col:
             st.markdown(
                 f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
                 f'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
-                f'padding:1.2rem .8rem;text-align:center;'
-                f'box-shadow:0 2px 12px rgba(184,134,11,0.08);">'
-                f'<div style="font-size:1.6rem;margin-bottom:.3rem;">{icon}</div>'
+                f'padding:1.2rem .8rem;text-align:center;">'
+                f'<div style="font-size:1.6rem;margin-bottom:.3rem;">{_icon}</div>'
                 f'<div style="font-family:Playfair Display,serif;font-size:1.6rem;'
-                f'font-weight:700;color:#9a6e00;line-height:1;">{num}</div>'
+                f'font-weight:700;color:#9a6e00;">{_num}</div>'
                 f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
-                f'letter-spacing:1px;text-transform:uppercase;margin-top:.3rem;">{label}</div>'
+                f'letter-spacing:1px;text-transform:uppercase;margin-top:.3rem;">{_lbl}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── PROJECT OVERVIEW + TECH STACK ────────────────────────────────────────
-    st.markdown('<div class="sec-head" style="margin-top:2.2rem;">✦ About the Project</div>', unsafe_allow_html=True)
-    pc1, pc2 = st.columns([3, 2], gap='large')
-    with pc1:
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ About the Project</div>', unsafe_allow_html=True)
+    _pc1, _pc2 = st.columns([3, 2], gap='large')
+    with _pc1:
         st.markdown(
             '<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
             'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
             'padding:2rem;box-shadow:0 2px 16px rgba(184,134,11,0.08);">'
             '<div style="font-family:Cinzel,serif;font-size:.68rem;color:#b8860b;'
             'letter-spacing:2px;text-transform:uppercase;margin-bottom:.8rem;">⚗ Project Overview</div>'
-            '<div style="font-family:Playfair Display,serif;font-size:1.4rem;font-weight:700;'
+            '<div style="font-family:Playfair Display,serif;font-size:1.35rem;font-weight:700;'
             'color:#2c1a00;margin-bottom:.9rem;line-height:1.3;">'
-            "NeuroScan AI — Early Parkinson's Detection via Deep Learning</div>"
+            "Parkinson's Disease Detection Using Deep Learning on Brain MRI</div>"
             '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#5a3a0a;'
-            'line-height:1.85;margin-bottom:1.2rem;">'
-            'NeuroScan AI is a B.Tech final-year capstone project developed at the Department of ECE, '
-            'BVC College of Engineering. It applies a hybrid '
-            '<strong style="color:#8a5e00;">ResNet50 + Vision Transformer (ViT)</strong> and '
-            '<strong style="color:#8a5e00;">EfficientNet-B4 + ViT</strong> cross-attention architecture '
-            "to classify brain MRI scans and detect early signs of Parkinson's Disease with "
-            'clinical-grade accuracy. The system integrates '
-            '<strong style="color:#8a5e00;">Grad-CAM explainability</strong> '
-            'to highlight regions of neural attention, bridging the gap between AI inference '
-            'and medical interpretability. Validated with <strong style="color:#8a5e00;">5-fold '
-            'cross-validation</strong> achieving 100% accuracy on ResNet50, EfficientNet-B4 and ViT-B16.'
+            'line-height:1.9;margin-bottom:1.2rem;">'
+            'This B.Tech Final Year Project (2025-26) at the Dept. of ECE, '
+            'BVC College of Engineering, Rajahmundry applies '
+            '<strong style="color:#8a5e00;">Hybrid Deep Learning</strong> architectures '
+            "to classify brain MRI scans for early detection of Parkinson's Disease. "
+            'The system uses <em>irfansheriff/parkinsons-brain-mri-dataset</em> '
+            '(831 scans: 610 Normal, 221 Parkinson) and combines '
+            '<strong style="color:#8a5e00;">ResNet50 + ViT</strong> (HybridNet_RV), '
+            '<strong style="color:#8a5e00;">EfficientNet-B4 + ViT</strong> (HybridNet_EV), '
+            'and a pure <strong style="color:#8a5e00;">Vision Transformer (ViT-B/16)</strong> '
+            'with Cross-Attention Fusion. '
+            'All models are validated with <strong style="color:#8a5e00;">5-Fold Stratified CV</strong> '
+            'and equipped with <strong style="color:#8a5e00;">Grad-CAM</strong> explainability.'
             '</div>'
             '<div style="display:flex;gap:.7rem;flex-wrap:wrap;">'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
             'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
-            'color:#7a4f00;letter-spacing:1px;">🧠 Deep Learning</span>'
+            'color:#7a4f00;letter-spacing:1px;">🧠 Hybrid Deep Learning</span>'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
             'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
-            'color:#7a4f00;letter-spacing:1px;">🔬 Medical Imaging</span>'
+            'color:#7a4f00;letter-spacing:1px;">🔬 Brain MRI Analysis</span>'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
             'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
-            'color:#7a4f00;letter-spacing:1px;">📊 Explainable AI</span>'
-            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
-            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
-            'color:#7a4f00;letter-spacing:1px;">⚡ Computer Vision</span>'
+            'color:#7a4f00;letter-spacing:1px;">📊 Grad-CAM XAI</span>'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
             'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
             'color:#7a4f00;letter-spacing:1px;">✦ 5-Fold CV Validated</span>'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">⚡ Cross-Attention Fusion</span>'
             '</div></div>',
             unsafe_allow_html=True,
         )
-    with pc2:
+    with _pc2:
         st.markdown(
             '<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
             'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
             'padding:2rem;box-shadow:0 2px 16px rgba(184,134,11,0.08);">'
             '<div style="font-family:Cinzel,serif;font-size:.68rem;color:#b8860b;'
-            'letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem;">⚙ Technology Stack</div>'
-            '<div style="display:flex;flex-direction:column;gap:.7rem;">'
-
-            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem;">📋 Project Specs</div>'
+            '<div style="display:flex;flex-direction:column;gap:.75rem;">'
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
-            '<span style="font-size:1.3rem;">🤖</span>'
-            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
-            'letter-spacing:1px;font-weight:700;">AI Framework</div>'
-            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'PyTorch · ResNet50 + ViT · EfficientNet+ViT</div></div></div>'
-
-            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
-            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
-            '<span style="font-size:1.3rem;">🔥</span>'
-            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
-            'letter-spacing:1px;font-weight:700;">Explainability</div>'
-            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'Gradient-weighted CAM (Grad-CAM)</div></div></div>'
-
-            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
-            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
-            '<span style="font-size:1.3rem;">📦</span>'
+            '<span style="font-size:1.1rem;flex-shrink:0;">📦</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
             'letter-spacing:1px;font-weight:700;">Dataset</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'irfansheriff/parkinsons-brain-mri · 831 MRI scans</div></div></div>'
-
-            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'irfansheriff/parkinsons-brain-mri<br>831 scans · Normal 610 · Parkinson 221</div></div></div>'
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
-            '<span style="font-size:1.3rem;">🖥</span>'
+            '<span style="font-size:1.1rem;flex-shrink:0;">🤖</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
-            'letter-spacing:1px;font-weight:700;">User Interface</div>'
+            'letter-spacing:1px;font-weight:700;">Models</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'Streamlit · Custom Royal CSS</div></div></div>'
-
-            '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem;'
+            'HybridNet_RV · HybridNet_EV · ViT-B/16<br>+ Weighted Ensemble</div></div></div>'
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
-            '<span style="font-size:1.3rem;">📄</span>'
+            '<span style="font-size:1.1rem;flex-shrink:0;">🔥</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
-            'letter-spacing:1px;font-weight:700;">Reporting</div>'
+            'letter-spacing:1px;font-weight:700;">Explainability</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'ReportLab PDF · Pandas · CSV Export</div></div></div>'
-
+            'Gradient-weighted CAM (Grad-CAM)<br>Spatial attention visualisation</div></div></div>'
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.1rem;flex-shrink:0;">📊</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Validation</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            '5-Fold Stratified CV<br>70% Train · 15% Val · 15% Test</div></div></div>'
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.1rem;flex-shrink:0;">🖥</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Tech Stack</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'PyTorch · timm · Streamlit · ReportLab<br>Google Colab · T4 GPU</div></div></div>'
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.1rem;flex-shrink:0;">🎓</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Academic Year</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'B.Tech Final Year 2025-26<br>Dept. ECE · BVC College of Engg.</div></div></div>'
             '</div></div>',
             unsafe_allow_html=True,
         )
 
-    # ── MODEL PERFORMANCE ─────────────────────────────────────────────────────
-    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Model Performance (5-Fold Cross-Validation)</div>', unsafe_allow_html=True)
-    pm1, pm2, pm3, pm4, pm5, pm6 = st.columns(6)
-    for col, val, lbl, color in [
-        (pm1, '100%',   'ResNet50',      '#7a4f00'),
-        (pm2, '100%',   'EfficientNet',  '#1a6a38'),
-        (pm3, '99.88%', 'ViT-B16',       '#004a90'),
-        (pm4, '98.4%',  'MiniSegNet',    '#7a1a1a'),
-        (pm5, '98.4%',  'HybridNet RV',  '#5a1a7a'),
-        (pm6, '99.2%',  'HybridNet EV',  '#1a5a7a'),
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Model Performance</div>', unsafe_allow_html=True)
+    _pm1, _pm2, _pm3, _pm4 = st.columns(4)
+    for _col, _val, _lbl, _color in [
+        (_pm1, '98.4%',  'HybridNet RV', '#7a4f00'),
+        (_pm2, '99.2%',  'HybridNet EV', '#1a6a38'),
+        (_pm3, '99.88%', 'ViT-B/16',     '#004a90'),
+        (_pm4, '99.8%',  'Ensemble',     '#5a1a7a'),
     ]:
-        with col:
+        with _col:
             st.markdown(
                 f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
                 f'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
-                f'padding:1.2rem .8rem;text-align:center;">'
-                f'<div style="font-family:Playfair Display,serif;font-size:1.5rem;'
-                f'font-weight:900;color:{color};">{val}</div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
-                f'letter-spacing:1px;text-transform:uppercase;margin-top:.3rem;">{lbl}</div>'
+                f'padding:1.4rem 1rem;text-align:center;">'
+                f'<div style="font-family:Playfair Display,serif;font-size:1.7rem;'
+                f'font-weight:900;color:{_color};">{_val}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:#9a7030;'
+                f'letter-spacing:1px;text-transform:uppercase;margin-top:.4rem;">{_lbl}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── RESULT IMAGES FROM DRIVE ──────────────────────────────────────────────
-    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Training Results & Visualisations</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<p style="font-family:EB Garamond,serif;font-size:1rem;color:#a89060;'
-        'margin-bottom:1.2rem;line-height:1.7;">'
-        'All result charts are loaded directly from Google Drive. '
-        'These were generated during model training on the Parkinson\'s Brain MRI dataset.</p>',
-        unsafe_allow_html=True,
-    )
-
-    # Drive direct-download URL helper
-    def gdrive_img_url(file_id):
-        return f"https://drive.google.com/uc?export=download&id={file_id}"
-
-    # ── Replace these IDs with your actual file IDs from Drive ───────────────
-    # To get a file ID: open the file in Drive → Share → Copy link
-    # The ID is the long string between /d/ and /view in the URL
-    # File order from Drive folder (alphabetical):
-    # 1=confusion_matrices  2=eda_distribution  3=gradcam_all_models
-    # 4=model_comparison    5=roc_curves        6=sample_grid   7=training_curves
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Training Results</div>', unsafe_allow_html=True)
     RESULT_IMAGES = {
         'Confusion Matrices':   '1qQgCIXUAvBFIqKOg31E2RKZqpMX3bfHn',
         'Class Distribution':   '1c10Rb-uQU8_Wtu59Q48P-E20IVfHDIwx',
-        'GradCAM — All Models': '1uKot-ObwVs5VoqFXwxzWOUkEuV4pLr--',
+        'GradCAM All Models':   '1uKot-ObwVs5VoqFXwxzWOUkEuV4pLr--',
         'Model Comparison':     '1pSapafZeP9r-gRs-dFsHOLgcJOddSFiz',
         'ROC Curves':           '1X78209LQ7PTwbu12lC8jWou9DqmF5RGp',
         'Sample Grid':          '1J6li-fQx28HqKuRclAlNHyUSzLOQ6Vvp',
@@ -1714,116 +1688,104 @@ with tab_about:
     @st.cache_data(show_spinner=False)
     def fetch_drive_image(file_id):
         import requests
-        # Try thumbnail URL first (bypasses virus-scan redirect for images)
         for url in [
             f"https://drive.google.com/thumbnail?id={file_id}&sz=w1200",
             f"https://lh3.googleusercontent.com/d/{file_id}",
-            f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t",
         ]:
             try:
                 resp = requests.get(url, timeout=15, allow_redirects=True)
-                ct   = resp.headers.get('Content-Type', '')
-                if resp.status_code == 200 and 'image' in ct:
+                if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
                     return resp.content
             except Exception:
                 continue
         return None
 
-    # Display in a 2-column grid
-    img_items = list(RESULT_IMAGES.items())
-    for i in range(0, len(img_items), 2):
-        cols = st.columns(2, gap='large')
-        for j, col in enumerate(cols):
-            if i + j < len(img_items):
-                name, fid = img_items[i + j]
-                with col:
+    _img_items = list(RESULT_IMAGES.items())
+    for _i in range(0, len(_img_items), 2):
+        _ri_cols = st.columns(2, gap='large')
+        for _j, _col in enumerate(_ri_cols):
+            if _i + _j < len(_img_items):
+                _name, _fid = _img_items[_i + _j]
+                with _col:
                     st.markdown(
                         f'<div class="card" style="padding:1rem;">'
                         f'<div style="font-family:Cinzel,serif;font-size:.65rem;'
                         f'color:#b8860b;letter-spacing:2px;text-transform:uppercase;'
-                        f'margin-bottom:.8rem;text-align:center;">◈ {name}</div>',
+                        f'margin-bottom:.8rem;text-align:center;">◈ {_name}</div>',
                         unsafe_allow_html=True,
                     )
-                    if 'REPLACE_WITH' in fid:
-                        st.info(f'Add Drive file ID for: {name}')
+                    _img_data = fetch_drive_image(_fid)
+                    if _img_data:
+                        st.image(_img_data, use_column_width=True)
                     else:
-                        img_data = fetch_drive_image(fid)
-                        if img_data:
-                            st.image(img_data, use_column_width=True)
-                        else:
-                            st.warning(f'Could not load: {name}')
+                        st.warning(f'Could not load: {_name}')
                     st.markdown('</div>', unsafe_allow_html=True)
 
-
-
-    # ── TEAM ─────────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Team</div>', unsafe_allow_html=True)
-    team = [
-        {'roll': '236M5A0408', 'name': 'G Srinivasu',      'icon': '👨‍💻', 'role': 'AI Model & Backend'},
-        {'roll': '226M1A0460', 'name': 'S Anusha Devi',    'icon': '👩‍💻', 'role': 'UI/UX & Frontend'},
-        {'roll': '226M1A0473', 'name': 'V V Siva Vardhan', 'icon': '👨‍💻', 'role': 'Data & Testing'},
-        {'roll': '236M5A0415', 'name': 'N L Sandeep',      'icon': '👨‍💻', 'role': 'Reports & Integration'},
+    _team = [
+        {'roll': '236M5A0408', 'name': 'G Srinivasu',      'icon': '👨\u200d💻', 'role': 'AI Model & Backend'},
+        {'roll': '226M1A0460', 'name': 'S Anusha Devi',    'icon': '👩\u200d💻', 'role': 'UI/UX & Frontend'},
+        {'roll': '226M1A0473', 'name': 'V V Siva Vardhan', 'icon': '👨\u200d💻', 'role': 'Data & Testing'},
+        {'roll': '236M5A0415', 'name': 'N L Sandeep',      'icon': '👨\u200d💻', 'role': 'Reports & Integration'},
     ]
-    tcols = st.columns(4)
-    for i, m in enumerate(team):
-        with tcols[i]:
+    _tcols = st.columns(4)
+    for _i, _m in enumerate(_team):
+        with _tcols[_i]:
             st.markdown(
                 f'<div class="team-card" style="position:relative;overflow:hidden;">'
                 f'<div style="position:absolute;top:0;left:0;right:0;height:2px;'
                 f'background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>'
-                f'<div style="font-size:2.6rem;margin-bottom:.6rem;">{m["icon"]}</div>'
+                f'<div style="font-size:2.6rem;margin-bottom:.6rem;">{_m["icon"]}</div>'
                 f'<div style="font-family:Playfair Display,serif;font-size:1.05rem;'
-                f'font-weight:700;color:#2c1a00;margin-bottom:.3rem;">{m["name"]}</div>'
+                f'font-weight:700;color:#2c1a00;margin-bottom:.3rem;">{_m["name"]}</div>'
                 f'<div style="font-family:EB Garamond,serif;font-size:.88rem;'
-                f'color:#8a5e00;margin-bottom:.4rem;font-style:italic;">{m["role"]}</div>'
+                f'color:#8a5e00;margin-bottom:.4rem;font-style:italic;">{_m["role"]}</div>'
                 f'<div style="font-family:Cinzel,serif;font-size:.58rem;'
-                f'color:#b89040;letter-spacing:1.5px;">{m["roll"]}</div>'
+                f'color:#b89040;letter-spacing:1.5px;">{_m["roll"]}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── GUIDANCE ──────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Guidance</div>', unsafe_allow_html=True)
-    g1, g2, g3 = st.columns(3, gap='medium')
-    for col, role_label, role_color, icon, name, tags in [
-        (g1, 'Project Guide',       '#b8860b', '👨‍🏫',
+    _g1, _g2, _g3 = st.columns(3, gap='medium')
+    for _col, _rl, _rc, _icon, _name, _tags in [
+        (_g1, 'Project Guide',       '#b8860b', '👨\u200d🏫',
          'Ms. N P U V S N Pavan Kumar, M.Tech',
-         ['Assistant Professor', 'Dept. of ECE', 'Deputy CoE – III']),
-        (g2, 'Project Coordinator', '#1a6a38', '📋',
+         ['Assistant Professor', 'Dept. of ECE', 'Deputy CoE III']),
+        (_g2, 'Project Coordinator', '#1a6a38', '📋',
          'Mr. K Anji Babu, M.Tech',
          ['Assistant Professor', 'Dept. of ECE']),
-        (g3, 'Head of Department',  '#7a1a1a', '👨‍💼',
+        (_g3, 'Head of Department',  '#7a1a1a', '👨\u200d💼',
          'Dr. S A Vara Prasad, Ph.D, M.Tech',
-         ['Professor & HOD · ECE', 'Chairman BoS', 'Anti-Ragging Committee']),
+         ['Professor & HOD, ECE', 'Chairman BoS', 'Anti-Ragging Committee']),
     ]:
-        tag_html = ''.join(
+        _th = ''.join(
             f'<span style="background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.12);'
             f'border-radius:4px;padding:.2rem .75rem;font-family:Cinzel,serif;font-size:.6rem;'
-            f'color:{role_color};letter-spacing:1px;font-weight:600;">{t}</span> '
-            for t in tags
+            f'color:{_rc};letter-spacing:1px;font-weight:600;">{_t}</span> '
+            for _t in _tags
         )
-        with col:
+        with _col:
             st.markdown(
                 f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
                 f'border:1px solid rgba(184,134,11,0.2);border-radius:14px;'
                 f'padding:2rem 1.6rem;text-align:center;position:relative;'
-                f'box-shadow:0 3px 18px rgba(184,134,11,0.08);height:100%;">'
+                f'box-shadow:0 3px 18px rgba(184,134,11,0.08);">'
                 f'<div style="position:absolute;top:0;left:0;right:0;height:3px;'
-                f'background:linear-gradient(90deg,transparent,{role_color},transparent);'
+                f'background:linear-gradient(90deg,transparent,{_rc},transparent);'
                 f'border-radius:14px 14px 0 0;"></div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:{role_color};'
+                f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:{_rc};'
                 f'letter-spacing:2.5px;text-transform:uppercase;margin-bottom:.9rem;'
-                f'font-weight:700;">⭐ {role_label}</div>'
-                f'<div style="font-size:2.5rem;margin-bottom:.7rem;">{icon}</div>'
+                f'font-weight:700;">⭐ {_rl}</div>'
+                f'<div style="font-size:2.5rem;margin-bottom:.7rem;">{_icon}</div>'
                 f'<div style="font-family:Playfair Display,serif;font-size:1rem;'
                 f'font-weight:700;color:#2c1a00;margin-bottom:1rem;line-height:1.4;">'
-                f'{name}</div>'
+                f'{_name}</div>'
                 f'<div style="display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;">'
-                f'{tag_html}</div></div>',
+                f'{_th}</div></div>',
                 unsafe_allow_html=True,
             )
 
-    # ── DISCLAIMER ────────────────────────────────────────────────────────────
     st.markdown('<br>', unsafe_allow_html=True)
     st.markdown(
         '<div style="background:linear-gradient(135deg,rgba(192,57,43,0.05),'
@@ -1833,13 +1795,13 @@ with tab_about:
         'letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">⚕ Medical Disclaimer</div>'
         '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#7a1a1a;line-height:1.7;">'
         'This project is developed <strong>for academic and research purposes only</strong>. '
-        'The AI system is not a certified medical device and its outputs should never be used '
-        'as a substitute for professional clinical diagnosis. '
-        'Always consult a qualified neurologist for any medical decisions.'
+        "It is a B.Tech Final Year Project at BVC College of Engineering, Rajahmundry "
+        '(<a href="https://bvcr.edu.in" target="_blank" style="color:#c0392b;">bvcr.edu.in</a>). '
+        "The AI system is not a certified medical device and must not replace professional clinical diagnosis. "
+        'Always consult a qualified neurologist.'
         '</div></div>',
         unsafe_allow_html=True,
     )
-
 
 # ── ROYAL FOOTER ──────────────────────────────────────────────────────────────
 st.markdown(
