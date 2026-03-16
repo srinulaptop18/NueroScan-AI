@@ -812,6 +812,67 @@ hr{border:none!important;height:1px!important;background:linear-gradient(90deg,t
 .stAlert{border-radius:var(--radius)!important;font-family:'EB Garamond',serif!important;}
 .team-card{background:linear-gradient(145deg,#fffdf8,#fff6e8);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.4rem 1rem;text-align:center;transition:border-color .3s,transform .3s;}
 .team-card:hover{border-color:var(--gold-border);transform:translateY(-4px);box-shadow:var(--shadow-gold);}
+
+/* ── Sidebar toggle button (top-left) ── */
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button {
+  background:linear-gradient(135deg,#8a6e2f,#c9a84c,#e8c96a,#c9a84c,#8a6e2f) !important;
+  border:1px solid rgba(232,201,106,0.6) !important;
+  border-radius:8px !important;
+  color:#07090f !important;
+  font-size:1.1rem !important;
+  width:42px !important;
+  height:42px !important;
+  box-shadow:0 3px 12px rgba(201,168,76,0.4),inset 0 1px 0 rgba(255,255,255,0.2) !important;
+  transition:all .3s ease !important;
+}
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="collapsedControl"] button:hover {
+  transform:scale(1.08) !important;
+  box-shadow:0 6px 20px rgba(201,168,76,0.55) !important;
+}
+/* Sidebar expand arrow icon colour */
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg {
+  fill:#07090f !important;
+  color:#07090f !important;
+}
+/* Model radio buttons in sidebar */
+.stRadio>label{
+  font-family:'Cinzel',serif !important;
+  font-size:.72rem !important;
+  font-weight:600 !important;
+  color:#7a4f00 !important;
+  letter-spacing:1px !important;
+}
+.stRadio [data-baseweb="radio"] div[role="radio"] {
+  border-color:var(--gold-dim) !important;
+}
+.stRadio [data-baseweb="radio"] div[aria-checked="true"] {
+  background:var(--gold-dim) !important;
+  border-color:var(--gold) !important;
+}
+/* Selected model highlight in sidebar */
+.model-selected {
+  background:linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08));
+  border:1px solid rgba(184,134,11,0.4);
+  border-left:4px solid #c9a84c;
+  border-radius:8px;
+  padding:.6rem .9rem;
+  margin:.3rem 0;
+}
+.model-option {
+  border:1px solid rgba(184,134,11,0.15);
+  border-radius:8px;
+  padding:.6rem .9rem;
+  margin:.3rem 0;
+  cursor:pointer;
+  transition:all .2s;
+}
+.model-option:hover {
+  border-color:rgba(184,134,11,0.4);
+  background:rgba(184,134,11,0.05);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -897,65 +958,106 @@ for k, v in [
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  SIDEBAR — info only, no model selector (moved to main page)
+#  SIDEBAR — gold toggle button + model selector + info
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
+
+    # ── Sidebar header ────────────────────────────────────────────────────────
     st.markdown(
-        '<div style="text-align:center;padding:.8rem 0 1.2rem;">'
-        '<div style="font-family:Cinzel,serif;font-size:1.05rem;font-weight:700;'
-        'color:#8a5e00;letter-spacing:3px;">⚕ NEUROSCAN AI</div>'
+        '<div style="background:linear-gradient(135deg,#fdf3dc,#fdf8f0);'
+        'border-bottom:2px solid rgba(184,134,11,0.3);'
+        'padding:1.2rem 1rem 1rem;margin:-1rem -1rem .8rem;text-align:center;">'
+        '<div style="font-family:Cinzel,serif;font-size:1rem;font-weight:900;'
+        'color:#7a4f00;letter-spacing:4px;">⚕ NEUROSCAN AI</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.78rem;font-style:italic;'
+        'color:#9a7030;margin-top:.25rem;">Model Control Panel</div>'
+        '<div style="height:2px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);'
+        'margin:.7rem 0 0;"></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Model selector ────────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
+        'letter-spacing:2.5px;text-transform:uppercase;margin-bottom:.5rem;">⚙ Select Model</div>',
+        unsafe_allow_html=True,
+    )
+
+    MODEL_DISPLAY = {
+        "🔀 HybridNet RV  —  ResNet50 + ViT":      "HybridNet_RV (ResNet50 + ViT)",
+        "🔀 HybridNet EV  —  EffNet + ViT":         "HybridNet_EV (EfficientNet + ViT)",
+        "🧱 ResNet50  —  CNN Backbone":              "ResNet50",
+        "⚡ EfficientNet-B4  —  Compound CNN":       "EfficientNet-B4",
+        "👁 ViT-B/16  —  Vision Transformer":        "ViT-B16",
+        "🗺 MiniSegNet  —  Lightweight U-Net":        "MiniSegNet",
+        "✦ All Models  —  Ensemble (recommended)":   "__ALL__",
+    }
+
+    selected_display = st.radio(
+        "model_radio",
+        list(MODEL_DISPLAY.keys()),
+        index=0,
+        label_visibility="collapsed",
+    )
+    model_choice_key = MODEL_DISPLAY[selected_display]
+
+    # Highlight selected
+    selected_acc = {
+        "HybridNet_RV (ResNet50 + ViT)":    "98.4%",
+        "HybridNet_EV (EfficientNet + ViT)":"99.2%",
+        "ResNet50":                          "100%",
+        "EfficientNet-B4":                   "100%",
+        "ViT-B16":                           "99.9%",
+        "MiniSegNet":                        "97.6%",
+        "__ALL__":                           "100%",
+    }
+    acc = selected_acc.get(model_choice_key, "—")
+    mode_label = "All 6 Models + Ensemble" if model_choice_key == "__ALL__" else model_choice_key
+    st.markdown(
+        f'<div style="background:linear-gradient(135deg,rgba(184,134,11,0.12),'
+        f'rgba(184,134,11,0.06));border:1px solid rgba(184,134,11,0.4);'
+        f'border-left:4px solid #c9a84c;border-radius:8px;'
+        f'padding:.6rem .9rem;margin:.5rem 0 .8rem;">'
+        f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:#9a7030;'
+        f'letter-spacing:1px;text-transform:uppercase;">Selected</div>'
+        f'<div style="font-family:Playfair Display,serif;font-size:.95rem;'
+        f'font-weight:700;color:#7a4f00;">{mode_label}</div>'
+        f'<div style="font-family:Cinzel,serif;font-size:.62rem;color:#4CAF50;'
+        f'margin-top:.2rem;">CV Accuracy: {acc}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.4),transparent);margin:.6rem 0;"></div></div>',
+        'rgba(184,134,11,0.25),transparent);margin:.6rem 0;"></div>',
         unsafe_allow_html=True,
     )
-    st.info(
-        "Advanced hybrid deep-learning system for brain MRI analysis.\n\n"
-        "Upload a scan and click **Analyze** — all 6 models run automatically."
+
+    # ── Performance metrics ───────────────────────────────────────────────────
+    st.markdown(
+        '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">◈ Performance</div>',
+        unsafe_allow_html=True,
     )
+    _c1, _c2 = st.columns(2)
+    with _c1: st.metric('CV Acc', '100%')
+    with _c2: st.metric('AUC',    '1.000')
+    _c3, _c4 = st.columns(2)
+    with _c3: st.metric('Precision', '100%')
+    with _c4: st.metric('Recall',    '98%')
+
     st.markdown(
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
+        'rgba(184,134,11,0.25),transparent);margin:.6rem 0;"></div>',
         unsafe_allow_html=True,
     )
+
+    # ── Features ──────────────────────────────────────────────────────────────
     st.markdown(
-        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#b8860b;'
-        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">⚙ Model Suite</div>'
-        '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#6b4c11;line-height:2.1;">'
-        '⚜ ResNet50 (CNN)<br>'
-        '⚜ EfficientNet-B4 (CNN)<br>'
-        '⚜ ViT-B/16 (Transformer)<br>'
-        '⚜ MiniSegNet (U-Net)<br>'
-        '⚜ HybridNet RV (ResNet+ViT)<br>'
-        '⚜ HybridNet EV (EffNet+ViT)<br>'
-        '⚜ Ensemble (weighted avg)'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#b8860b;'
-        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">◈ Performance</div>',
-        unsafe_allow_html=True,
-    )
-    c1, c2 = st.columns(2)
-    with c1: st.metric('CV Accuracy', '100%')
-    with c2: st.metric('AUC', '1.000')
-    c3, c4 = st.columns(2)
-    with c3: st.metric('Precision', '100%')
-    with c4: st.metric('Recall',    '98%')
-    st.markdown(
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#b8860b;'
-        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">✦ Features</div>'
-        '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#6b4c11;line-height:2;">'
+        '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">✦ Features</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.88rem;color:#6b4c11;line-height:1.9;">'
         '⚜ Single-scan analysis<br>⚜ Batch processing<br>'
         '⚜ Grad-CAM heatmap<br>⚜ Risk scoring<br>'
         '⚜ Gold PDF report<br>⚜ CSV export'
@@ -964,21 +1066,21 @@ with st.sidebar:
     )
     st.markdown(
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
+        'rgba(184,134,11,0.25),transparent);margin:.6rem 0;"></div>',
         unsafe_allow_html=True,
     )
-    st.warning("⚠️ For **research/academic** purposes only. Not for clinical diagnosis.")
+    st.warning("⚠️ Research/academic use only.")
     st.markdown(
-        '<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
-        'letter-spacing:1px;text-align:center;margin-top:.5rem;">'
-        '💡 Models load one at a time to stay within memory limits'
+        '<div style="font-family:Cinzel,serif;font-size:.55rem;color:#9a7030;'
+        'letter-spacing:1px;text-align:center;margin-top:.4rem;">'
+        '💡 One model loaded at a time — memory safe'
         '</div>',
         unsafe_allow_html=True,
     )
 
-# MODEL_PATH used for single-model fallback (batch, report etc.)
-# All models are downloaded & run at analyze time
-MODEL_PATH = list(MODEL_FILES.values())[0]   # default = HybridNet_RV
+# MODEL_PATH and run-mode derived from sidebar selection
+MODEL_PATH = MODEL_FILES.get(model_choice_key, list(MODEL_FILES.values())[0])
+RUN_ALL_MODELS = (model_choice_key == "__ALL__")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -996,46 +1098,49 @@ tab_scan, tab_batch, tab_about = st.tabs([
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_scan:
 
-    # ── Model cards row — shows all 6 models with status ─────────────────────
-    st.markdown('<div class="sec-head">✦ All Models — Auto-Run on Analyze</div>',
-                unsafe_allow_html=True)
-
-    MODEL_INFO = {
-        "HybridNet_RV (ResNet50 + ViT)":     {"icon":"🔀","short":"HybridNet RV", "acc":"98.4%","desc":"ResNet50 + ViT Cross-Attention"},
-        "HybridNet_EV (EfficientNet + ViT)": {"icon":"🔀","short":"HybridNet EV", "acc":"99.2%","desc":"EfficientNet + ViT Cross-Attention"},
-        "ResNet50":                           {"icon":"🧱","short":"ResNet50",     "acc":"100%", "desc":"CNN Backbone"},
-        "EfficientNet-B4":                    {"icon":"⚡","short":"EffNet-B4",    "acc":"100%", "desc":"Compound-Scaled CNN"},
-        "ViT-B16":                            {"icon":"👁","short":"ViT-B/16",     "acc":"99.9%","desc":"Vision Transformer"},
-        "MiniSegNet":                         {"icon":"🗺","short":"MiniSegNet",   "acc":"97.6%","desc":"Lightweight U-Net"},
+    # ── Model cards row — highlights sidebar selection ──────────────────────
+    _run_mode = "All 6 Models + Ensemble" if RUN_ALL_MODELS else model_choice_key
+    st.markdown(
+        f'<div class="sec-head">✦ Mode: {_run_mode}</div>',
+        unsafe_allow_html=True
+    )
+    _MODEL_INFO = {
+        "HybridNet_RV (ResNet50 + ViT)":     {"icon":"🔀","short":"HybridNet RV","acc":"98.4%","desc":"ResNet50+ViT"},
+        "HybridNet_EV (EfficientNet + ViT)": {"icon":"🔀","short":"HybridNet EV","acc":"99.2%","desc":"EffNet+ViT"},
+        "ResNet50":                           {"icon":"🧱","short":"ResNet50",    "acc":"100%", "desc":"CNN Backbone"},
+        "EfficientNet-B4":                    {"icon":"⚡","short":"EffNet-B4",   "acc":"100%", "desc":"Compound CNN"},
+        "ViT-B16":                            {"icon":"👁","short":"ViT-B/16",    "acc":"99.9%","desc":"Transformer"},
+        "MiniSegNet":                         {"icon":"🗺","short":"MiniSegNet",  "acc":"97.6%","desc":"U-Net Lite"},
     }
-    mc_cols = st.columns(6, gap="small")
-    for ci, (mkey, minfo) in enumerate(MODEL_INFO.items()):
-        with mc_cols[ci]:
+    _mc_cols = st.columns(6, gap="small")
+    for _ci, (_mkey, _minfo) in enumerate(_MODEL_INFO.items()):
+        _is_sel     = RUN_ALL_MODELS or (model_choice_key == _mkey)
+        _top_bdr    = "3px solid #c9a84c" if _is_sel else "3px solid rgba(184,134,11,0.1)"
+        _bg_card    = "linear-gradient(145deg,#fdf3dc,#fceedd)" if _is_sel else "linear-gradient(145deg,#fffdf8,#fff6e8)"
+        _shadow_c   = "0 4px 16px rgba(184,134,11,0.22)" if _is_sel else "0 2px 8px rgba(184,134,11,0.06)"
+        _tick       = " ✦" if _is_sel else ""
+        with _mc_cols[_ci]:
             st.markdown(
-                f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
-                f'border:1px solid rgba(184,134,11,0.25);border-radius:10px;'
-                f'padding:.8rem .5rem;text-align:center;'
-                f'border-top:3px solid #c9a84c;'
-                f'box-shadow:0 2px 10px rgba(184,134,11,0.08);">'
-                f'<div style="font-size:1.5rem;margin-bottom:.3rem;">{minfo["icon"]}</div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.62rem;font-weight:700;'
-                f'color:#7a4f00;letter-spacing:.5px;margin-bottom:.2rem;">{minfo["short"]}</div>'
-                f'<div style="font-family:EB Garamond,serif;font-size:.78rem;'
-                f'color:#9a7030;margin-bottom:.3rem;">{minfo["desc"]}</div>'
-                f'<div style="font-family:Playfair Display,serif;font-size:.9rem;'
-                f'font-weight:700;color:#4CAF50;">{minfo["acc"]}</div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.5rem;color:#b89040;'
-                f'letter-spacing:1px;margin-top:.2rem;">5-FOLD CV ACC</div>'
+                f'<div style="background:{_bg_card};border:1px solid rgba(184,134,11,0.3);'
+                f'border-radius:10px;padding:.8rem .4rem;text-align:center;'
+                f'border-top:{_top_bdr};box-shadow:{_shadow_c};">'
+                f'<div style="font-size:1.4rem;margin-bottom:.25rem;">{_minfo["icon"]}{_tick}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.6rem;font-weight:700;'
+                f'color:#7a4f00;letter-spacing:.5px;margin-bottom:.15rem;">{_minfo["short"]}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.74rem;'
+                f'color:#9a7030;margin-bottom:.2rem;">{_minfo["desc"]}</div>'
+                f'<div style="font-family:Playfair Display,serif;font-size:.88rem;'
+                f'font-weight:700;color:#4CAF50;">{_minfo["acc"]}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.48rem;color:#b89040;'
+                f'letter-spacing:1px;margin-top:.2rem;">5-FOLD CV</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-
     st.markdown(
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
         'rgba(201,168,76,0.2),transparent);margin:1.2rem 0 .5rem;"></div>',
         unsafe_allow_html=True,
     )
-
     col_form, col_upload = st.columns([1, 1], gap='large')
 
     with col_form:
@@ -1095,7 +1200,8 @@ with tab_scan:
                 st.error('Please upload a brain MRI scan.')
             else:
 
-                with st.spinner('Running all 6 models + ensemble…'):
+                _spinner_txt = 'Running all 6 models + ensemble…' if RUN_ALL_MODELS else f'Running {model_choice_key}…'
+                with st.spinner(_spinner_txt):
                     st.session_state.patient_data = {
                         'name':            patient_name.strip(),
                         'age':             patient_age,
@@ -1107,17 +1213,25 @@ with tab_scan:
                     }
                     try:
                         # ── Memory-safe: load → predict → DELETE each model ───
-                        # Only ONE model lives in RAM at a time.
-                        # Streamlit Cloud limit: ~800 MB RAM
+                        # Only ONE model in RAM at a time (~450 MB peak max)
                         all_model_results = {}
                         all_probs_list    = []
                         ensemble_weights  = [0.8, 0.9, 0.8, 0.6, 1.2, 1.2]
-                        _prog = st.progress(0)
-                        _stat = st.empty()
-                        _cls_list = None
+                        _cls_list  = None
                         _first_img = None
 
-                        for _idx_m, (_mc, _mpath) in enumerate(MODEL_FILES.items()):
+                        # Decide which models to run based on sidebar selection
+                        if RUN_ALL_MODELS:
+                            _models_to_run = list(MODEL_FILES.items())
+                        else:
+                            _single_path = MODEL_FILES.get(model_choice_key,
+                                           list(MODEL_FILES.values())[0])
+                            _models_to_run = [(model_choice_key, _single_path)]
+
+                        _prog = st.progress(0)
+                        _stat = st.empty()
+
+                        for _idx_m, (_mc, _mpath) in enumerate(_models_to_run):
                             _stat.markdown(
                                 f'<p style="font-family:Cinzel,serif;font-size:.75rem;'
                                 f'color:#c9a84c;">Running {_mc} ({_idx_m+1}/'
@@ -1145,14 +1259,18 @@ with tab_scan:
                             if torch.cuda.is_available():
                                 torch.cuda.empty_cache()
 
-                            _prog.progress((_idx_m + 1) / len(MODEL_FILES))
+                            _prog.progress((_idx_m + 1) / max(len(_models_to_run), 1))
 
                         _stat.empty()
                         _prog.empty()
 
-                        # ── Ensemble ──────────────────────────────────────────
+                        # ── Ensemble or single-model result ──────────────────
+                        if RUN_ALL_MODELS and len(all_probs_list) == 6:
+                            _ens_weights = ensemble_weights
+                        else:
+                            _ens_weights = [1.0] * len(all_probs_list)
                         _ens_p    = np.average(np.stack(all_probs_list),
-                                               axis=0, weights=ensemble_weights)
+                                               axis=0, weights=_ens_weights)
                         _ens_idx  = int(_ens_p.argmax())
                         _ens_conf = float(_ens_p[_ens_idx] * 100)
                         _park_idx = next(
@@ -1176,7 +1294,7 @@ with tab_scan:
                             'cam_heatmap':  None,
                             'timestamp':    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                             'image':        _first_img,
-                            'model_name':   'Ensemble (6 models)',
+                            'model_name':   'Ensemble (6 models)' if RUN_ALL_MODELS else model_choice_key,
                         }
 
                         # Store only lightweight results (no model objects)
@@ -1192,7 +1310,8 @@ with tab_scan:
                         st.session_state.ensemble_result   = ens_result
                         st.session_state.prediction_result = ens_result
                         st.session_state.prediction_made   = True
-                        st.success('All 6 models analysed!')
+                        _done_msg = 'All 6 models analysed!' if RUN_ALL_MODELS else f'{model_choice_key} analysis complete!'
+                        st.success(_done_msg)
                         st.balloons()
                         st.rerun()
                     except Exception as _exc:
