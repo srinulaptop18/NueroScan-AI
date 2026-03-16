@@ -45,7 +45,6 @@ MODEL_FILES = {
 #  MODEL ARCHITECTURES — HybridNet_RV · HybridNet_EV · ViT-B16
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── CrossAttentionFusion ─────────────────────────────────────────────────────
 class CrossAttentionFusion(nn.Module):
     def __init__(self, d=512, h=8, drop=0.1):
         super().__init__()
@@ -61,7 +60,6 @@ class CrossAttentionFusion(nn.Module):
         return self.n2(x + self.ffn(x))
 
 
-# ── HybridNet (RV = ResNet50+ViT, EV = EfficientNet+ViT) ─────────────────────
 class HybridNet(nn.Module):
     def __init__(self, nc, backbone_type='resnet50', d_model=512, n_heads=8, dropout=0.2):
         super().__init__()
@@ -100,14 +98,12 @@ class HybridNet(nn.Module):
         if self.backbone_type == 'resnet50':
             return self.cnn[-1][-1].conv3
         return self.cnn.blocks[-1][-1].conv_pwl
-    # ViT-B16 uses timm directly — no custom class needed
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  MODEL DOWNLOAD
 # ══════════════════════════════════════════════════════════════════════════════
 def download_model(path: str) -> None:
-    """Download model from its specific Drive file ID if not already present."""
     if not os.path.exists(path):
         fname   = os.path.basename(path)
         file_id = MODEL_DRIVE_IDS.get(fname)
@@ -128,7 +124,7 @@ def download_model(path: str) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  LOAD MODEL  — handles OLD (raw state_dict) and NEW (full checkpoint) formats
+#  LOAD MODEL
 # ══════════════════════════════════════════════════════════════════════════════
 def load_model(model_path: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -139,15 +135,11 @@ def load_model(model_path: str):
         st.error(f"Failed to load checkpoint: {e}")
         st.stop()
 
-    # ── Detect checkpoint format ──────────────────────────────────────────
     if isinstance(ck, dict) and 'model_state_dict' in ck:
-        # NEW format — full checkpoint saved from training notebook
         state_dict = ck['model_state_dict']
         nc         = ck.get('config', {}).get('num_classes', 2)
         mn         = ck.get('model_name', 'ResNet50')
         bt         = ck.get('backbone_type', None)
-        # Notebook saves raw folder names e.g. ['normal','parkinson']
-        # Map to display names while PRESERVING index order exactly
         raw_cls = ck.get('classes', ['normal', 'parkinson'])
         cls_map = {
             'normal':               'Normal',
@@ -159,7 +151,6 @@ def load_model(model_path: str):
         classes = [cls_map.get(c.lower(), c.title()) for c in raw_cls]
 
     elif isinstance(ck, dict):
-        # OLD format — raw state_dict only (new_ntau.pth)
         state_dict = ck
         nc         = 2
         bt         = None
@@ -180,14 +171,11 @@ def load_model(model_path: str):
             mn = 'ResNet50'
         else:
             mn = 'ResNetViT_Legacy'
-        # Legacy new_ntau.pth: class 0=Normal, class 1=Parkinson's
-        # This matches the original app.py class order
         classes = ['Normal', "Parkinson\'s Disease"]
     else:
         st.error("Unrecognised checkpoint format.")
         st.stop()
 
-    # ── Build correct architecture — only RV, EV, ViT ──────────────────────
     if mn in ('HybridNet_RV', 'HybridNet_EV'):
         backbone = bt or ('resnet50' if 'RV' in mn else 'efficientnet_b4')
         m = HybridNet(nc, backbone_type=backbone)
@@ -197,11 +185,9 @@ def load_model(model_path: str):
         st.error(f"Unsupported model: {mn}. This app uses HybridNet_RV, HybridNet_EV and ViT-B16 only.")
         st.stop()
 
-    # Load weights — strict=True catches mismatches immediately
     try:
         m.load_state_dict(state_dict, strict=True)
     except RuntimeError as e:
-        # Show which keys mismatched so we can debug
         missing  = [k for k in state_dict if k not in m.state_dict()]
         extra    = [k for k in m.state_dict() if k not in state_dict]
         st.error(
@@ -227,7 +213,6 @@ class GradCAM:
             lambda m, gi, go: setattr(self, '_grads', go[0]))
 
     def generate(self, img_tensor, class_idx, device):
-        # Reset stored grads/acts before each forward pass
         self._acts  = None
         self._grads = None
         self.model.eval()
@@ -251,7 +236,6 @@ class GradCAM:
 
 
 def get_gradcam_layer(model, mn):
-    """Returns the target conv layer for GradCAM (HybridNet only; ViT skipped)."""
     try:
         if mn in ('HybridNet_RV', 'HybridNet_EV'):
             return model.get_gradcam_layer()
@@ -288,8 +272,6 @@ def predict(model, device, classes, mn, pil_image):
         class_idx      = int(probs_np.argmax())
         confidence_pct = float(probs_np[class_idx] * 100)
 
-    # ── Dynamically find Normal vs Parkinson index ────────────────────────
-    # Works regardless of class order saved in the checkpoint
     normal_idx = parkinson_idx = None
     for i, c in enumerate(classes):
         cl = c.lower()
@@ -305,7 +287,6 @@ def predict(model, device, classes, mn, pil_image):
     is_parkinson   = (class_idx == parkinson_idx)
     risk = ('High' if confidence_pct >= 85 else 'Moderate') if is_parkinson else 'Low'
 
-    # ── GradCAM — fresh tensor, separate from inference ───────────────────
     overlay = heatmap = None
     gc_layer = get_gradcam_layer(model, mn)
     if gc_layer is not None and mn != 'ViT-B16':
@@ -316,10 +297,8 @@ def predict(model, device, classes, mn, pil_image):
             if cam_map is not None and cam_map.max() > 0:
                 overlay, heatmap = apply_colormap(img_rgb, cam_map)
         except Exception as _gc_err:
-            # Store error for display in UI
             overlay  = None
             heatmap  = None
-            _gradcam_error = str(_gc_err)
 
     return {
         'prediction':     classes[class_idx],
@@ -334,7 +313,7 @@ def predict(model, device, classes, mn, pil_image):
         'timestamp':      datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'image':          img_rgb,
         'model_name':     mn,
-        '_probs_np':      probs_np,   # raw probs for ensemble
+        '_probs_np':      probs_np,
     }
 
 
@@ -342,7 +321,6 @@ def predict(model, device, classes, mn, pil_image):
 #  PDF REPORT
 # ══════════════════════════════════════════════════════════════════════════════
 def build_pdf(patient, result):
-    """Gold-themed PDF report matching the royal UI aesthetic."""
     buf    = io.BytesIO()
     doc    = SimpleDocTemplate(buf, pagesize=letter,
                                leftMargin=0.75*inch, rightMargin=0.75*inch,
@@ -350,7 +328,6 @@ def build_pdf(patient, result):
     story  = []
     styles = getSampleStyleSheet()
 
-    # ── Gold colour palette ───────────────────────────────────────────────────
     GOLD        = colors.HexColor('#b8860b')
     GOLD_DARK   = colors.HexColor('#7a4f00')
     GOLD_LIGHT  = colors.HexColor('#fdf3dc')
@@ -361,7 +338,6 @@ def build_pdf(patient, result):
     EMERALD     = colors.HexColor('#1a6a38')
     GREY_TEXT   = colors.HexColor('#7a5a1a')
 
-    # ── Paragraph styles ──────────────────────────────────────────────────────
     title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=22,
         textColor=GOLD_DARK, spaceAfter=2, alignment=TA_CENTER,
         fontName='Helvetica-Bold')
@@ -382,7 +358,6 @@ def build_pdf(patient, result):
     foot_s = ParagraphStyle('F', parent=styles['Normal'], fontSize=8,
         textColor=GREY_TEXT, alignment=TA_CENTER)
 
-    # ── Gold divider helper ───────────────────────────────────────────────────
     def gold_line():
         t = Table([['', '', '']], colWidths=[0.5*inch, 6.5*inch, 0.5*inch])
         t.setStyle(TableStyle([
@@ -393,20 +368,16 @@ def build_pdf(patient, result):
         ]))
         return t
 
-    # ── Gold table helper ─────────────────────────────────────────────────────
     def gold_tbl(rows, col_widths):
         t = Table(rows, colWidths=col_widths)
         t.setStyle(TableStyle([
-            # Header row — dark gold
             ('BACKGROUND',     (0,0),(-1,0), GOLD_DARK),
             ('TEXTCOLOR',      (0,0),(-1,0), colors.white),
             ('FONTNAME',       (0,0),(-1,0), 'Helvetica-Bold'),
             ('FONTSIZE',       (0,0),(-1,0), 10),
             ('BOTTOMPADDING',  (0,0),(-1,0), 8),
             ('TOPPADDING',     (0,0),(-1,0), 8),
-            # Alternating parchment / white rows
             ('ROWBACKGROUNDS', (0,1),(-1,-1), [GOLD_LIGHT, PARCHMENT]),
-            # Grid in gold
             ('GRID',           (0,0),(-1,-1), 0.4, MIDGOLD),
             ('FONTNAME',       (0,1),(-1,-1), 'Helvetica'),
             ('FONTSIZE',       (0,1),(-1,-1), 10),
@@ -414,15 +385,11 @@ def build_pdf(patient, result):
             ('TOPPADDING',     (0,1),(-1,-1), 6),
             ('BOTTOMPADDING',  (0,1),(-1,-1), 6),
             ('LEFTPADDING',    (0,0),(-1,-1), 10),
-            # Left column label styling
             ('FONTNAME',       (0,1),(0,-1), 'Helvetica-Bold'),
             ('TEXTCOLOR',      (0,1),(0,-1), GOLD_DARK),
         ]))
         return t
 
-    # ════════════════════════════════════════════════
-    #  HEADER
-    # ════════════════════════════════════════════════
     story.append(Paragraph('NeuroScan AI', title_s))
     story.append(Paragraph("Parkinson's Disease MRI Analysis Report", subtitle_s))
     story.append(Paragraph(
@@ -431,7 +398,6 @@ def build_pdf(patient, result):
     story.append(gold_line())
     story.append(Spacer(1, 4))
 
-    # Diagnosis verdict banner
     is_parkinson = result.get('is_parkinson', False)
     diag_color   = CRIMSON if is_parkinson else EMERALD
     diag_text    = result['prediction'].upper()
@@ -449,9 +415,6 @@ def build_pdf(patient, result):
     story.append(verdict_tbl)
     story.append(Spacer(1, 10))
 
-    # ════════════════════════════════════════════════
-    #  PATIENT INFORMATION
-    # ════════════════════════════════════════════════
     story.append(Paragraph('Patient Information', head_s))
     story.append(gold_line())
     story.append(gold_tbl([
@@ -470,9 +433,6 @@ def build_pdf(patient, result):
         story.append(gold_line())
         story.append(Paragraph(patient['medical_history'], body_s))
 
-    # ════════════════════════════════════════════════
-    #  AI RESULTS
-    # ════════════════════════════════════════════════
     story.append(Paragraph('AI Analysis Results', head_s))
     story.append(gold_line())
     story.append(gold_tbl([
@@ -486,9 +446,6 @@ def build_pdf(patient, result):
         ['AI Model',                 result['model_name']],
     ], [2.8*inch, 4.2*inch]))
 
-    # ════════════════════════════════════════════════
-    #  ALL MODELS RESULTS (if available)
-    # ════════════════════════════════════════════════
     all_mr = result.get('_all_model_results')
     if all_mr:
         story.append(Spacer(1, 10))
@@ -506,9 +463,6 @@ def build_pdf(patient, result):
             ])
         story.append(gold_tbl(rows, [1.6*inch, 1.1*inch, 1*inch, 1.1*inch, 1*inch, 0.8*inch]))
 
-    # ════════════════════════════════════════════════
-    #  BRAIN MRI + GRAD-CAM
-    # ════════════════════════════════════════════════
     story.append(Spacer(1, 10))
     story.append(Paragraph('Brain MRI Scan & Grad-CAM Heatmap', head_s))
     story.append(gold_line())
@@ -543,9 +497,6 @@ def build_pdf(patient, result):
         textColor=GOLD, alignment=TA_CENTER, spaceBefore=4)
     story.append(Paragraph(cap_txt, cap_s))
 
-    # ════════════════════════════════════════════════
-    #  DISCLAIMER + FOOTER
-    # ════════════════════════════════════════════════
     story.append(Spacer(1, 14))
     story.append(gold_line())
     story.append(Paragraph(
@@ -558,7 +509,6 @@ def build_pdf(patient, result):
     story.append(Spacer(1, 4))
     story.append(Paragraph(
         f"NeuroScan AI | Parkinson's Disease Detection | BVC College of Engineering, Rajahmundry | "
-        # (collapsed into line above)
         f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         foot_s))
 
@@ -593,7 +543,7 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  ROYAL CSS  (identical to original)
+#  ROYAL CSS
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
@@ -671,8 +621,6 @@ hr{border:none!important;height:1px!important;background:linear-gradient(90deg,t
 .stAlert{border-radius:var(--radius)!important;font-family:'EB Garamond',serif!important;}
 .team-card{background:linear-gradient(145deg,#fffdf8,#fff6e8);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.4rem 1rem;text-align:center;transition:border-color .3s,transform .3s;}
 .team-card:hover{border-color:var(--gold-border);transform:translateY(-4px);box-shadow:var(--shadow-gold);}
-
-/* ── Sidebar toggle button (top-left) ── */
 [data-testid="stSidebarCollapsedControl"] button,
 [data-testid="collapsedControl"] button {
   background:linear-gradient(135deg,#8a6e2f,#c9a84c,#e8c96a,#c9a84c,#8a6e2f) !important;
@@ -690,13 +638,11 @@ hr{border:none!important;height:1px!important;background:linear-gradient(90deg,t
   transform:scale(1.08) !important;
   box-shadow:0 6px 20px rgba(201,168,76,0.55) !important;
 }
-/* Sidebar expand arrow icon colour */
 [data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="collapsedControl"] svg {
   fill:#07090f !important;
   color:#07090f !important;
 }
-/* Model radio buttons in sidebar */
 .stRadio>label{
   font-family:'Cinzel',serif !important;
   font-size:.72rem !important;
@@ -711,7 +657,6 @@ hr{border:none!important;height:1px!important;background:linear-gradient(90deg,t
   background:var(--gold-dim) !important;
   border-color:var(--gold) !important;
 }
-/* Selected model highlight in sidebar */
 .model-selected {
   background:linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08));
   border:1px solid rgba(184,134,11,0.4);
@@ -769,7 +714,6 @@ st.markdown(
     '<div style="font-family:Cormorant Garamond,serif;font-size:1rem;font-style:italic;'
     'color:#9a7030;letter-spacing:4px;text-align:center;">'
     "Parkinson's Detection · Brain MRI · Deep Learning</div>"
-    # ── Project title ──────────────────────────────────────────────────
     '<div style="background:linear-gradient(135deg,rgba(184,134,11,0.12),rgba(184,134,11,0.06));'
     'border:1px solid rgba(184,134,11,0.35);border-radius:8px;'
     'padding:.7rem 2rem;margin-top:.3rem;position:relative;overflow:hidden;">'
@@ -817,11 +761,10 @@ for k, v in [
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  SIDEBAR — gold toggle button + model selector + info
+#  SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
 
-    # ── Sidebar header ────────────────────────────────────────────────────────
     st.markdown(
         '<div style="background:linear-gradient(135deg,#fdf3dc,#fdf8f0);'
         'border-bottom:2px solid rgba(184,134,11,0.3);'
@@ -835,7 +778,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # ── Model selector ────────────────────────────────────────────────────────
     st.markdown(
         '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
         'letter-spacing:2.5px;text-transform:uppercase;margin-bottom:.5rem;">⚙ Select Model</div>',
@@ -857,7 +799,6 @@ with st.sidebar:
     )
     model_choice_key = MODEL_DISPLAY[selected_display]
 
-    # Highlight selected
     selected_acc = {
         "HybridNet_RV (ResNet50 + ViT)":    "98.4%",
         "HybridNet_EV (EfficientNet + ViT)":"99.2%",
@@ -887,7 +828,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # ── Performance metrics ───────────────────────────────────────────────────
     st.markdown(
         '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
         'letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">◈ Performance</div>',
@@ -906,7 +846,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # ── Features ──────────────────────────────────────────────────────────────
     st.markdown(
         '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
         'letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">✦ Features</div>'
@@ -931,7 +870,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-# MODEL_PATH and run-mode derived from sidebar selection
 MODEL_PATH = MODEL_FILES.get(model_choice_key, list(MODEL_FILES.values())[0])
 RUN_ALL_MODELS = (model_choice_key == "__ALL__")
 
@@ -951,7 +889,6 @@ tab_scan, tab_batch, tab_about = st.tabs([
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_scan:
 
-    # ── Model cards row — highlights sidebar selection ──────────────────────
     _run_mode = "All 3 Models + Ensemble" if RUN_ALL_MODELS else model_choice_key
     st.markdown(
         f'<div class="sec-head">✦ Mode: {_run_mode}</div>',
@@ -1049,7 +986,6 @@ with tab_scan:
             elif uploaded_file is None:
                 st.error('Please upload a brain MRI scan.')
             else:
-
                 _spinner_txt = 'Running all 6 models + ensemble…' if RUN_ALL_MODELS else f'Running {model_choice_key}…'
                 with st.spinner(_spinner_txt):
                     st.session_state.patient_data = {
@@ -1062,15 +998,12 @@ with tab_scan:
                         'medical_history': medical_history.strip(),
                     }
                     try:
-                        # ── Memory-safe: load → predict → DELETE each model ───
-                        # Only ONE model in RAM at a time (~450 MB peak max)
                         all_model_results = {}
                         all_probs_list    = []
-                        ensemble_weights  = [1.2, 1.2, 0.8]   # RV, EV, ViT
+                        ensemble_weights  = [1.2, 1.2, 0.8]
                         _cls_list  = None
                         _first_img = None
 
-                        # Decide which models to run based on sidebar selection
                         if RUN_ALL_MODELS:
                             _models_to_run = list(MODEL_FILES.items())
                         else:
@@ -1088,33 +1021,24 @@ with tab_scan:
                                 f'{len(MODEL_FILES)})…</p>',
                                 unsafe_allow_html=True
                             )
-                            # 1. Download if needed
                             download_model(_mpath)
-
-                            # 2. Load model — NOT cached, fresh each time
                             _m, _cls, _mn, _dev = load_model(_mpath)
                             _cls_list = _cls
-
-                            # 3. Predict
                             _r = predict(_m, _dev, _cls, _mn, image)
                             if _first_img is None:
                                 _first_img = _r['image']
                             all_model_results[_mc] = _r
                             all_probs_list.append(_r['_probs_np'])
-
-                            # 4. DELETE model immediately — free RAM
                             del _m
                             import gc as _gc
                             _gc.collect()
                             if torch.cuda.is_available():
                                 torch.cuda.empty_cache()
-
                             _prog.progress((_idx_m + 1) / max(len(_models_to_run), 1))
 
                         _stat.empty()
                         _prog.empty()
 
-                        # ── Ensemble or single-model result ──────────────────
                         if RUN_ALL_MODELS and len(all_probs_list) == 3:
                             _ens_weights = ensemble_weights
                         else:
@@ -1147,8 +1071,6 @@ with tab_scan:
                             'model_name':   'Ensemble (6 models)' if RUN_ALL_MODELS else model_choice_key,
                         }
 
-                        # Store only lightweight results (no model objects)
-                        # Strip large tensors from results before storing
                         _lite_results = {}
                         for _k, _v in all_model_results.items():
                             _lite_results[_k] = {
@@ -1167,7 +1089,6 @@ with tab_scan:
                     except Exception as _exc:
                         st.error(f'Error during analysis: {_exc}')
 
-    # ── RESULTS ──────────────────────────────────────────────────────────────
     if st.session_state.prediction_made:
         r         = st.session_state.prediction_result
         is_normal = not r.get('is_parkinson', r['class_idx'] == 0)
@@ -1230,8 +1151,6 @@ with tab_scan:
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Grad-CAM
-        # ── All models comparison ────────────────────────────────────────
         if st.session_state.get('all_model_results'):
             st.markdown('<div class="sec-head">✦ All Models Comparison</div>', unsafe_allow_html=True)
             amr = st.session_state.all_model_results
@@ -1299,7 +1218,6 @@ with tab_scan:
             if st.button('📜 Generate PDF Report'):
                 with st.spinner('Building royal report…'):
                     try:
-                        # Attach all-model results to pass into PDF
                         _pdf_result = dict(st.session_state.prediction_result)
                         if st.session_state.get('all_model_results'):
                             _pdf_result['_all_model_results'] = {
@@ -1371,7 +1289,6 @@ with tab_batch:
                     st.warning(f'Skipped {f.name}: {exc}')
                 prog.progress((i+1) / len(batch_files))
 
-            # Delete batch model to free RAM
             del model
             import gc as _gc; _gc.collect()
             if torch.cuda.is_available(): torch.cuda.empty_cache()
@@ -1473,7 +1390,7 @@ with tab_batch:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  TAB 3 — ABOUT
+#  TAB 3 — ABOUT  (updated from training notebook PDF, Institute at a Glance removed)
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_about:
     college_logo = get_logo_b64('bvcr.jpg')
@@ -1530,30 +1447,10 @@ with tab_about:
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="sec-head">✦ Institute at a Glance</div>', unsafe_allow_html=True)
-    _s1, _s2, _s3, _s4, _s5 = st.columns(5)
-    for _col, _num, _lbl, _icon in [
-        (_s1, '25+',  'Years of Excellence', '🏆'),
-        (_s2, '3500+','Students Enrolled',   '🎓'),
-        (_s3, '200+', 'Faculty Members',     '👩\u200d🏫'),
-        (_s4, '9',    'Departments',         '🏛'),
-        (_s5, '95%',  'Placement Rate',      '💼'),
-    ]:
-        with _col:
-            st.markdown(
-                f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
-                f'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
-                f'padding:1.2rem .8rem;text-align:center;">'
-                f'<div style="font-size:1.6rem;margin-bottom:.3rem;">{_icon}</div>'
-                f'<div style="font-family:Playfair Display,serif;font-size:1.6rem;'
-                f'font-weight:700;color:#9a6e00;">{_num}</div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
-                f'letter-spacing:1px;text-transform:uppercase;margin-top:.3rem;">{_lbl}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ About the Project</div>', unsafe_allow_html=True)
+    # ══════════════════════════════════════════════════════════════════════
+    #  ABOUT THE PROJECT  — based on training notebook (FinaleAll.ipynb)
+    # ══════════════════════════════════════════════════════════════════════
+    st.markdown('<div class="sec-head" style="margin-top:1rem;">✦ About the Project</div>', unsafe_allow_html=True)
     _pc1, _pc2 = st.columns([3, 2], gap='large')
     with _pc1:
         st.markdown(
@@ -1571,14 +1468,21 @@ with tab_about:
             'BVC College of Engineering, Rajahmundry applies '
             '<strong style="color:#8a5e00;">Hybrid Deep Learning</strong> architectures '
             "to classify brain MRI scans for early detection of Parkinson's Disease. "
-            'The system uses <em>irfansheriff/parkinsons-brain-mri-dataset</em> '
-            '(831 scans: 610 Normal, 221 Parkinson) and combines '
-            '<strong style="color:#8a5e00;">ResNet50 + ViT</strong> (HybridNet_RV), '
-            '<strong style="color:#8a5e00;">EfficientNet-B4 + ViT</strong> (HybridNet_EV), '
-            'and a pure <strong style="color:#8a5e00;">Vision Transformer (ViT-B/16)</strong> '
-            'with Cross-Attention Fusion. '
-            'All models are validated with <strong style="color:#8a5e00;">5-Fold Stratified CV</strong> '
-            'and equipped with <strong style="color:#8a5e00;">Grad-CAM</strong> explainability.'
+            'The system uses the <em>irfansheriff/parkinsons-brain-mri-dataset</em> '
+            '(831 total scans: 610 Normal · 221 Parkinson) sourced from Kaggle, '
+            'with all corrupt files verified and removed. '
+            'Three architectures are trained and validated: '
+            '<strong style="color:#8a5e00;">HybridNet_RV</strong> (ResNet50 + ViT with Cross-Attention Fusion), '
+            '<strong style="color:#8a5e00;">HybridNet_EV</strong> (EfficientNet-B4 + ViT with Cross-Attention Fusion), '
+            'and a standalone <strong style="color:#8a5e00;">ViT-B/16</strong> Vision Transformer. '
+            'A <strong style="color:#8a5e00;">MiniSegNet</strong> lightweight CNN baseline is also included. '
+            'All models are trained with <strong style="color:#8a5e00;">MixUp augmentation</strong>, '
+            '<strong style="color:#8a5e00;">Label Smoothing CE loss</strong>, '
+            '<strong style="color:#8a5e00;">Cosine Annealing LR</strong>, and '
+            '<strong style="color:#8a5e00;">Early Stopping</strong> on a T4 GPU (Google Colab). '
+            'Final evaluation uses a <strong style="color:#8a5e00;">Weighted Ensemble</strong> '
+            '(weights: ResNet50 0.8 · EfficientNet 0.9 · ViT 0.8 · MiniSegNet 0.6 · HybridNet_RV 1.2 · HybridNet_EV 1.2) '
+            'achieving <strong style="color:#8a5e00;">100% ensemble accuracy</strong> on the held-out test set.'
             '</div>'
             '<div style="display:flex;gap:.7rem;flex-wrap:wrap;">'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
@@ -1592,10 +1496,13 @@ with tab_about:
             'color:#7a4f00;letter-spacing:1px;">📊 Grad-CAM XAI</span>'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
             'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
-            'color:#7a4f00;letter-spacing:1px;">✦ 5-Fold CV Validated</span>'
+            'color:#7a4f00;letter-spacing:1px;">✦ 70/15/15 Train/Val/Test Split</span>'
             '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
             'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
             'color:#7a4f00;letter-spacing:1px;">⚡ Cross-Attention Fusion</span>'
+            '<span style="background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.25);'
+            'border-radius:4px;padding:.25rem .8rem;font-family:Cinzel,serif;font-size:.62rem;'
+            'color:#7a4f00;letter-spacing:1px;">🔀 MixUp + Label Smoothing</span>'
             '</div></div>',
             unsafe_allow_html=True,
         )
@@ -1607,73 +1514,232 @@ with tab_about:
             '<div style="font-family:Cinzel,serif;font-size:.68rem;color:#b8860b;'
             'letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem;">📋 Project Specs</div>'
             '<div style="display:flex;flex-direction:column;gap:.75rem;">'
+
             '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
             '<span style="font-size:1.1rem;flex-shrink:0;">📦</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
             'letter-spacing:1px;font-weight:700;">Dataset</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'irfansheriff/parkinsons-brain-mri<br>831 scans · Normal 610 · Parkinson 221</div></div></div>'
+            'irfansheriff/parkinsons-brain-mri (Kaggle)<br>'
+            '831 scans · Normal: 610 · Parkinson: 221<br>'
+            'Split: 581 Train · 125 Val · 125 Test</div></div></div>'
+
             '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
             '<span style="font-size:1.1rem;flex-shrink:0;">🤖</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
-            'letter-spacing:1px;font-weight:700;">Models</div>'
+            'letter-spacing:1px;font-weight:700;">Models Trained</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'HybridNet_RV · HybridNet_EV · ViT-B/16<br>+ Weighted Ensemble</div></div></div>'
+            'ResNet50 · EfficientNet-B4 · ViT-B/16<br>'
+            'MiniSegNet · HybridNet_RV · HybridNet_EV<br>'
+            '+ Weighted Ensemble (6 models)</div></div></div>'
+
+            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
+            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
+            '<span style="font-size:1.1rem;flex-shrink:0;">⚙</span>'
+            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
+            'letter-spacing:1px;font-weight:700;">Training Config</div>'
+            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
+            'SEED=42 · IMG_SIZE=224 · BS=16 · EPOCHS=30<br>'
+            'MixUp (α=0.3) · Label Smoothing (ε=0.1)<br>'
+            'WeightedRandomSampler · Early Stopping (patience=7)</div></div></div>'
+
             '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
             '<span style="font-size:1.1rem;flex-shrink:0;">🔥</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
             'letter-spacing:1px;font-weight:700;">Explainability</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'Gradient-weighted CAM (Grad-CAM)<br>Spatial attention visualisation</div></div></div>'
-            '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
-            'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
-            '<span style="font-size:1.1rem;flex-shrink:0;">📊</span>'
-            '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
-            'letter-spacing:1px;font-weight:700;">Validation</div>'
-            '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            '5-Fold Stratified CV<br>70% Train · 15% Val · 15% Test</div></div></div>'
+            'Gradient-weighted CAM (Grad-CAM)<br>'
+            'Per-model spatial attention heatmaps<br>'
+            'ViT: N/A (no spatial conv maps)</div></div></div>'
+
             '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
             '<span style="font-size:1.1rem;flex-shrink:0;">🖥</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
             'letter-spacing:1px;font-weight:700;">Tech Stack</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'PyTorch · timm · Streamlit · ReportLab<br>Google Colab · T4 GPU</div></div></div>'
+            'PyTorch · timm · torchvision · scikit-learn<br>'
+            'Streamlit · ReportLab · OpenCV · Seaborn<br>'
+            'Google Colab · Tesla T4 GPU (15.6 GB VRAM)</div></div></div>'
+
             '<div style="display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;'
             'background:rgba(184,134,11,0.05);border-radius:8px;border-left:3px solid #c9a84c;">'
             '<span style="font-size:1.1rem;flex-shrink:0;">🎓</span>'
             '<div><div style="font-family:Cinzel,serif;font-size:.62rem;color:#8a5e00;'
             'letter-spacing:1px;font-weight:700;">Academic Year</div>'
             '<div style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;">'
-            'B.Tech Final Year 2025-26<br>Dept. ECE · BVC College of Engg.</div></div></div>'
+            'B.Tech Final Year 2025-26<br>Dept. of ECE · BVC College of Engineering</div></div></div>'
+
             '</div></div>',
             unsafe_allow_html=True,
         )
 
-    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Model Performance</div>', unsafe_allow_html=True)
-    _pm1, _pm2, _pm3, _pm4 = st.columns(4)
-    for _col, _val, _lbl, _color in [
-        (_pm1, '98.4%',  'HybridNet RV', '#7a4f00'),
-        (_pm2, '99.2%',  'HybridNet EV', '#1a6a38'),
-        (_pm3, '99.88%', 'ViT-B/16',     '#004a90'),
-        (_pm4, '99.8%',  'Ensemble',     '#5a1a7a'),
+    # ══════════════════════════════════════════════════════════════════════
+    #  MODEL PERFORMANCE  — exact figures from notebook output
+    # ══════════════════════════════════════════════════════════════════════
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Model Performance (Test Set)</div>', unsafe_allow_html=True)
+
+    # Parameters table from notebook
+    _param_data = [
+        ("ResNet50",       "24.6M", "23.1M", "1.0000", "1.0000", "1.0000", "1.0000", "1.0000"),
+        ("EfficientNet-B4","17.6M", "13.9M", "0.9920", "0.9896", "0.9946", "0.9848", "0.9997"),
+        ("ViT-B/16",       "85.8M", "28.4M", "1.0000", "1.0000", "1.0000", "1.0000", "1.0000"),
+        ("MiniSegNet",     "0.3M",  "0.3M",  "0.9760", "0.9682", "0.9342", "0.9728", "0.9960"),
+        ("HybridNet_RV",   "113M",  "32.1M", "0.9600", "0.9508", "0.9342", "0.9728", "0.9987"),
+        ("HybridNet_EV",   "105M",  "44.3M", "1.0000", "1.0000", "1.0000", "1.0000", "1.0000"),
+        ("Ensemble",       "—",     "—",     "1.0000", "1.0000", "1.0000", "1.0000", "1.0000"),
+    ]
+
+    _th_style = ('font-family:Cinzel,serif;font-size:.62rem;color:#fff;'
+                 'letter-spacing:1px;text-transform:uppercase;padding:.5rem .6rem;'
+                 'background:#7a4f00;text-align:center;')
+    _td_style = ('font-family:EB Garamond,serif;font-size:.9rem;color:#2c1a00;'
+                 'padding:.45rem .6rem;text-align:center;border-bottom:1px solid rgba(184,134,11,0.12);')
+    _td_l_style = ('font-family:Cinzel,serif;font-size:.62rem;color:#7a4f00;font-weight:700;'
+                   'padding:.45rem .8rem;text-align:left;border-bottom:1px solid rgba(184,134,11,0.12);'
+                   'background:rgba(184,134,11,0.04);')
+
+    _tbl_html = (
+        '<div style="overflow-x:auto;margin-top:.5rem;">'
+        '<table style="width:100%;border-collapse:collapse;border:1px solid rgba(184,134,11,0.25);'
+        'border-radius:10px;overflow:hidden;background:#fffdf8;">'
+        '<thead><tr>'
+        f'<th style="{_th_style}text-align:left;">Model</th>'
+        f'<th style="{_th_style}">Total Params</th>'
+        f'<th style="{_th_style}">Trainable</th>'
+        f'<th style="{_th_style}">Accuracy</th>'
+        f'<th style="{_th_style}">F1-Macro</th>'
+        f'<th style="{_th_style}">Precision</th>'
+        f'<th style="{_th_style}">Recall</th>'
+        f'<th style="{_th_style}">AUC</th>'
+        '</tr></thead><tbody>'
+    )
+    for row in _param_data:
+        _acc_color = '#1a6a38' if float(row[3]) >= 0.999 else ('#b8860b' if float(row[3]) >= 0.98 else '#c0392b')
+        _tbl_html += (
+            f'<tr>'
+            f'<td style="{_td_l_style}">{row[0]}</td>'
+            f'<td style="{_td_style}">{row[1]}</td>'
+            f'<td style="{_td_style}">{row[2]}</td>'
+            f'<td style="{_td_style}font-weight:700;color:{_acc_color};">{row[3]}</td>'
+            f'<td style="{_td_style}">{row[4]}</td>'
+            f'<td style="{_td_style}">{row[5]}</td>'
+            f'<td style="{_td_style}">{row[6]}</td>'
+            f'<td style="{_td_style}">{row[7]}</td>'
+            f'</tr>'
+        )
+    _tbl_html += '</tbody></table></div>'
+    st.markdown(_tbl_html, unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════════
+    #  TRAINING DETAILS  — from notebook
+    # ══════════════════════════════════════════════════════════════════════
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Training Pipeline Details</div>', unsafe_allow_html=True)
+    _tp1, _tp2, _tp3 = st.columns(3, gap='medium')
+
+    for _col, _icon, _title, _color, _items in [
+        (_tp1, '📐', 'Data Augmentation', '#b8860b', [
+            'Resize to 256×256 → RandomCrop 224',
+            'RandomHorizontalFlip (p=0.5)',
+            'RandomVerticalFlip (p=0.2)',
+            'RandomRotation (±20°)',
+            'RandomAffine (translate 0.1, scale 0.85–1.15)',
+            'ColorJitter (brightness/contrast 0.4, saturation 0.2)',
+            'GaussianBlur (kernel=3, σ=0.1–2.0)',
+            'RandomErasing (p=0.2, scale 0.02–0.10)',
+            'MixUp (α=0.3, applied 60% of batches)',
+        ]),
+        (_tp2, '⚙', 'Optimiser & Schedule', '#1a6a38', [
+            'Optimiser: AdamW',
+            'ResNet50 / EffNet: LR = 1e-4',
+            'ViT-B/16: LR = 5e-5',
+            'MiniSegNet: LR = 8e-5',
+            'HybridNet RV/EV: LR = 5e-5',
+            'Scheduler: CosineAnnealingLR',
+            'AMP (mixed precision) enabled',
+            'Gradient clip norm = 1.0',
+            'Early stopping patience = 7',
+        ]),
+        (_tp3, '📊', 'Evaluation Protocol', '#004a90', [
+            'Stratified 70 / 15 / 15 split',
+            'Train: 581 · Val: 125 · Test: 125',
+            'WeightedRandomSampler (class balance)',
+            'Label Smoothing CE (ε=0.1)',
+            'Metrics: Acc · F1 · Precision · Recall · AUC',
+            'Normalised Confusion Matrices',
+            'ROC curves per model',
+            'Grad-CAM on test samples',
+            'Results saved to Google Drive',
+        ]),
     ]:
         with _col:
+            _li = ''.join(
+                f'<li style="font-family:EB Garamond,serif;font-size:.9rem;color:#5a3a0a;'
+                f'padding:.18rem 0;line-height:1.5;">{it}</li>'
+                for it in _items
+            )
             st.markdown(
                 f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
                 f'border:1px solid rgba(184,134,11,0.2);border-radius:12px;'
-                f'padding:1.4rem 1rem;text-align:center;">'
-                f'<div style="font-family:Playfair Display,serif;font-size:1.7rem;'
-                f'font-weight:900;color:{_color};">{_val}</div>'
-                f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:#9a7030;'
-                f'letter-spacing:1px;text-transform:uppercase;margin-top:.4rem;">{_lbl}</div>'
+                f'padding:1.6rem 1.4rem;box-shadow:0 2px 12px rgba(184,134,11,0.07);'
+                f'border-top:3px solid {_color};">'
+                f'<div style="font-size:1.4rem;margin-bottom:.5rem;">{_icon}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.65rem;color:{_color};'
+                f'letter-spacing:2px;text-transform:uppercase;margin-bottom:.8rem;font-weight:700;">'
+                f'{_title}</div>'
+                f'<ul style="padding-left:1.1rem;margin:0;">{_li}</ul>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  ENSEMBLE WEIGHTS  — from notebook
+    # ══════════════════════════════════════════════════════════════════════
+    st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Ensemble Configuration</div>', unsafe_allow_html=True)
+    _ew_data = [
+        ("ResNet50",        "0.8", "Standalone CNN backbone"),
+        ("EfficientNet-B4", "0.9", "Standalone efficient backbone"),
+        ("ViT-B/16",        "0.8", "Pure Vision Transformer"),
+        ("MiniSegNet",      "0.6", "Lightweight CNN baseline"),
+        ("HybridNet_RV",    "1.2", "ResNet50 + ViT Cross-Attention"),
+        ("HybridNet_EV",    "1.2", "EfficientNet-B4 + ViT Cross-Attention"),
+    ]
+    _ew_cols = st.columns(6, gap='small')
+    for _ci, (_name, _w, _desc) in enumerate(_ew_data):
+        _wf = float(_w)
+        _wc = '#1a6a38' if _wf >= 1.2 else ('#b8860b' if _wf >= 0.8 else '#c0392b')
+        with _ew_cols[_ci]:
+            st.markdown(
+                f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
+                f'border:1px solid rgba(184,134,11,0.2);border-radius:10px;'
+                f'padding:1rem .6rem;text-align:center;'
+                f'border-top:3px solid {_wc};">'
+                f'<div style="font-family:Playfair Display,serif;font-size:1.5rem;'
+                f'font-weight:900;color:{_wc};">{_w}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#7a4f00;'
+                f'letter-spacing:.5px;margin:.3rem 0;font-weight:700;">{_name}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.78rem;'
+                f'color:#9a7030;line-height:1.4;">{_desc}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown(
+        '<div style="margin-top:.8rem;padding:.8rem 1.2rem;'
+        'background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
+        'border-radius:8px;font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;">'
+        '⚗ <strong>Ensemble formula:</strong> weighted average of softmax probabilities across all 6 models, '
+        'with higher weights assigned to the HybridNet variants (RV & EV) that combine both CNN spatial '
+        'features and ViT global attention via Cross-Attention Fusion. Total weight sum = 5.5.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ══════════════════════════════════════════════════════════════════════
+    #  TRAINING RESULTS IMAGES  — from Google Drive
+    # ══════════════════════════════════════════════════════════════════════
     st.markdown('<div class="sec-head" style="margin-top:2rem;">✦ Training Results</div>', unsafe_allow_html=True)
     RESULT_IMAGES = {
         'Confusion Matrices':   '1qQgCIXUAvBFIqKOg31E2RKZqpMX3bfHn',
@@ -1721,6 +1787,9 @@ with tab_about:
                         st.warning(f'Could not load: {_name}')
                     st.markdown('</div>', unsafe_allow_html=True)
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  PROJECT TEAM
+    # ══════════════════════════════════════════════════════════════════════
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Team</div>', unsafe_allow_html=True)
     _team = [
         {'roll': '236M5A0408', 'name': 'G Srinivasu',      'icon': '👨\u200d💻', 'role': 'AI Model & Backend'},
@@ -1746,6 +1815,9 @@ with tab_about:
                 unsafe_allow_html=True,
             )
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  PROJECT GUIDANCE
+    # ══════════════════════════════════════════════════════════════════════
     st.markdown('<div class="sec-head" style="margin-top:2.4rem;">✦ Project Guidance</div>', unsafe_allow_html=True)
     _g1, _g2, _g3 = st.columns(3, gap='medium')
     for _col, _rl, _rc, _icon, _name, _tags in [
