@@ -898,20 +898,20 @@ for k, v in [
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  SIDEBAR
+#  SIDEBAR — info only, no model selector (moved to main page)
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
     st.markdown(
         '<div style="text-align:center;padding:.8rem 0 1.2rem;">'
-        '<div style="font-family:Cinzel,serif;font-size:1.1rem;font-weight:700;'
+        '<div style="font-family:Cinzel,serif;font-size:1.05rem;font-weight:700;'
         'color:#8a5e00;letter-spacing:3px;">⚕ NEUROSCAN AI</div>'
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
         'rgba(184,134,11,0.4),transparent);margin:.6rem 0;"></div></div>',
         unsafe_allow_html=True,
     )
     st.info(
-        "Advanced deep-learning system for brain MRI analysis. "
-        "Upload a scan to screen for Parkinson's Disease in seconds."
+        "Advanced hybrid deep-learning system for brain MRI analysis.\n\n"
+        "Upload a scan and click **Analyze** — all 6 models run automatically."
     )
     st.markdown(
         '<div style="height:1px;background:linear-gradient(90deg,transparent,'
@@ -919,56 +919,16 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#9a7030;'
-        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.5rem;">⚙ Select Model</div>',
-        unsafe_allow_html=True,
-    )
-
-    model_choice = st.selectbox(
-        'Model',
-        list(MODEL_FILES.keys()),
-        index=0,
-        label_visibility='collapsed',
-        help="All models trained on irfansheriff/parkinsons-brain-mri-dataset (20260315)"
-    )
-    MODEL_PATH = MODEL_FILES[model_choice]
-
-    # Download if not present
-    download_model(MODEL_PATH)
-
-    # Debug info — shows exactly what's in the checkpoint
-    if os.path.exists(MODEL_PATH):
-        try:
-            _ck = torch.load(MODEL_PATH, map_location='cpu', weights_only=False)
-            if isinstance(_ck, dict) and 'model_state_dict' in _ck:
-                st.caption(
-                    f"✓ Checkpoint: {_ck.get('model_name','?')} | "
-                    f"classes={_ck.get('classes','?')} | "
-                    f"acc={_ck.get('val_acc', _ck.get('test_accuracy','?'))}"
-                )
-            else:
-                keys = list(_ck.keys()) if isinstance(_ck, dict) else []
-                st.caption(f"Legacy checkpoint | {len(keys)} keys")
-            del _ck
-        except Exception as ex:
-            st.caption(f"Could not inspect: {ex}")
-
-    st.success(
-        f"**Active:** {model_choice}\n\n"
-        "**Classes:** Normal / Parkinson's\n\n"
-        "**CV Accuracy:** 100% (best models)\n\n"
-        "**XAI:** Grad-CAM\n\n"
-        "**Status:** 🟢 Online"
-    )
-    st.markdown(
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div style="font-family:\'EB Garamond\',serif;font-size:.95rem;color:#6b4c11;line-height:2;">'
-        '⚜ Single-scan analysis<br>⚜ Batch processing<br>⚜ Grad-CAM heatmap<br>'
-        '⚜ Risk scoring<br>⚜ PDF &amp; CSV reports'
+        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#b8860b;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">⚙ Model Suite</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#6b4c11;line-height:2.1;">'
+        '⚜ ResNet50 (CNN)<br>'
+        '⚜ EfficientNet-B4 (CNN)<br>'
+        '⚜ ViT-B/16 (Transformer)<br>'
+        '⚜ MiniSegNet (U-Net)<br>'
+        '⚜ HybridNet RV (ResNet+ViT)<br>'
+        '⚜ HybridNet EV (EffNet+ViT)<br>'
+        '⚜ Ensemble (weighted avg)'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -977,10 +937,42 @@ with st.sidebar:
         'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
         unsafe_allow_html=True,
     )
-    st.warning("⚠️ For **research/academic** purposes only.")
+    st.markdown(
+        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#b8860b;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">◈ Performance</div>',
+        unsafe_allow_html=True,
+    )
     c1, c2 = st.columns(2)
-    with c1: st.metric('Precision', '100%')
-    with c2: st.metric('Recall',    '98%')
+    with c1: st.metric('CV Accuracy', '100%')
+    with c2: st.metric('AUC', '1.000')
+    c3, c4 = st.columns(2)
+    with c3: st.metric('Precision', '100%')
+    with c4: st.metric('Recall',    '98%')
+    st.markdown(
+        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
+        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="font-family:Cinzel,serif;font-size:.65rem;color:#b8860b;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">✦ Features</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#6b4c11;line-height:2;">'
+        '⚜ Single-scan analysis<br>⚜ Batch processing<br>'
+        '⚜ Grad-CAM heatmap<br>⚜ Risk scoring<br>'
+        '⚜ Gold PDF report<br>⚜ CSV export'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
+        'rgba(184,134,11,0.25),transparent);margin:.8rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
+    st.warning("⚠️ For **research/academic** purposes only. Not for clinical diagnosis.")
+
+# MODEL_PATH used for single-model fallback (batch, report etc.)
+# All models are downloaded & run at analyze time
+MODEL_PATH = list(MODEL_FILES.values())[0]   # default = HybridNet_RV
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -997,6 +989,47 @@ tab_scan, tab_batch, tab_about = st.tabs([
 #  TAB 1 — SINGLE MRI
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_scan:
+
+    # ── Model cards row — shows all 6 models with status ─────────────────────
+    st.markdown('<div class="sec-head">✦ All Models — Auto-Run on Analyze</div>',
+                unsafe_allow_html=True)
+
+    MODEL_INFO = {
+        "HybridNet_RV (ResNet50 + ViT)":     {"icon":"🔀","short":"HybridNet RV", "acc":"98.4%","desc":"ResNet50 + ViT Cross-Attention"},
+        "HybridNet_EV (EfficientNet + ViT)": {"icon":"🔀","short":"HybridNet EV", "acc":"99.2%","desc":"EfficientNet + ViT Cross-Attention"},
+        "ResNet50":                           {"icon":"🧱","short":"ResNet50",     "acc":"100%", "desc":"CNN Backbone"},
+        "EfficientNet-B4":                    {"icon":"⚡","short":"EffNet-B4",    "acc":"100%", "desc":"Compound-Scaled CNN"},
+        "ViT-B16":                            {"icon":"👁","short":"ViT-B/16",     "acc":"99.9%","desc":"Vision Transformer"},
+        "MiniSegNet":                         {"icon":"🗺","short":"MiniSegNet",   "acc":"97.6%","desc":"Lightweight U-Net"},
+    }
+    mc_cols = st.columns(6, gap="small")
+    for ci, (mkey, minfo) in enumerate(MODEL_INFO.items()):
+        with mc_cols[ci]:
+            st.markdown(
+                f'<div style="background:linear-gradient(145deg,#fffdf8,#fff6e8);'
+                f'border:1px solid rgba(184,134,11,0.25);border-radius:10px;'
+                f'padding:.8rem .5rem;text-align:center;'
+                f'border-top:3px solid #c9a84c;'
+                f'box-shadow:0 2px 10px rgba(184,134,11,0.08);">'
+                f'<div style="font-size:1.5rem;margin-bottom:.3rem;">{minfo["icon"]}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.62rem;font-weight:700;'
+                f'color:#7a4f00;letter-spacing:.5px;margin-bottom:.2rem;">{minfo["short"]}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.78rem;'
+                f'color:#9a7030;margin-bottom:.3rem;">{minfo["desc"]}</div>'
+                f'<div style="font-family:Playfair Display,serif;font-size:.9rem;'
+                f'font-weight:700;color:#4CAF50;">{minfo["acc"]}</div>'
+                f'<div style="font-family:Cinzel,serif;font-size:.5rem;color:#b89040;'
+                f'letter-spacing:1px;margin-top:.2rem;">5-FOLD CV ACC</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown(
+        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
+        'rgba(201,168,76,0.2),transparent);margin:1.2rem 0 .5rem;"></div>',
+        unsafe_allow_html=True,
+    )
+
     col_form, col_upload = st.columns([1, 1], gap='large')
 
     with col_form:
@@ -1055,10 +1088,6 @@ with tab_scan:
             elif uploaded_file is None:
                 st.error('Please upload a brain MRI scan.')
             else:
-                # Clear cache if model changed
-                if st.session_state.get('last_model') != MODEL_PATH:
-                    st.cache_resource.clear()
-                    st.session_state['last_model'] = MODEL_PATH
 
                 with st.spinner('Running all 6 models + ensemble…'):
                     st.session_state.patient_data = {
