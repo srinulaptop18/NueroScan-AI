@@ -533,6 +533,24 @@ def get_logo_b64(path):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+def get_logo_b64(path):
+    try:
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                data = base64.b64encode(f.read()).decode()
+            ext  = path.rsplit('.', 1)[-1].lower()
+            mime = 'image/jpeg' if ext in ('jpg', 'jpeg') else f'image/{ext}'
+            return f'data:{mime};base64,{data}'
+    except Exception:
+        pass
+    return None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  PAGE CONFIG
 # ══════════════════════════════════════════════════════════════════════════════
 st.set_page_config(
@@ -542,6 +560,18 @@ st.set_page_config(
     initial_sidebar_state='expanded',
 )
 
+# ── Session state MUST be initialised before any widget ──────────────────────
+for _k, _v in [
+    ('prediction_made',      False),
+    ('patient_data',         {}),
+    ('prediction_result',    {}),
+    ('batch_results',        []),
+    ('last_model',           ''),
+    ('show_project_info',    False),
+]:
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  ROYAL CSS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -549,44 +579,59 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Cinzel:wght@400;500;600;700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
 :root {
-  --midnight:#fdf8f0;--navy-deep:#fff9f2;--navy:#fef6ec;--navy-mid:#fdf3e7;
-  --navy-light:#fceedd;--navy-card:#fffaf4;
-  --gold:#b8860b;--gold-bright:#9a6e00;--gold-dim:#c9a84c;
-  --gold-muted:rgba(184,134,11,0.10);--gold-glow:rgba(184,134,11,0.25);
-  --gold-line:rgba(184,134,11,0.20);--gold-border:rgba(184,134,11,0.40);
-  --crimson:#c0392b;--crimson-dim:rgba(192,57,43,0.10);
-  --emerald:#1e8449;--emerald-dim:rgba(30,132,73,0.10);
-  --parchment:#6b4c11;--text:#2c1a00;--text-2:#7a5a1a;--text-3:#b89040;
-  --radius:12px;--radius-sm:7px;
+  --gold:#b8860b; --gold-bright:#9a6e00; --gold-dim:#c9a84c;
+  --gold-muted:rgba(184,134,11,0.10); --gold-glow:rgba(184,134,11,0.25);
+  --gold-line:rgba(184,134,11,0.20); --gold-border:rgba(184,134,11,0.40);
+  --crimson:#c0392b; --crimson-dim:rgba(192,57,43,0.10);
+  --emerald:#1e8449; --emerald-dim:rgba(30,132,73,0.10);
+  --text:#2c1a00; --text-2:#7a5a1a; --text-3:#b89040;
+  --radius:12px; --radius-sm:7px;
   --shadow-royal:0 4px 24px rgba(184,134,11,0.10),0 1px 6px rgba(0,0,0,0.06);
   --shadow-gold:0 4px 20px rgba(184,134,11,0.18);
 }
+
+/* ── Base ── */
 html,body,.stApp{background:#fdf8f0!important;font-family:'EB Garamond','Cormorant Garamond',serif!important;color:var(--text)!important;}
-.stApp::before{content:'';position:fixed;inset:0;z-index:0;background-image:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(184,134,11,0.06) 0%,transparent 60%),repeating-linear-gradient(45deg,transparent,transparent 34px,rgba(184,134,11,0.025) 34px,rgba(184,134,11,0.025) 35px),repeating-linear-gradient(-45deg,transparent,transparent 34px,rgba(184,134,11,0.025) 34px,rgba(184,134,11,0.025) 35px);pointer-events:none;}
+.stApp::before{content:'';position:fixed;inset:0;z-index:0;
+  background-image:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(184,134,11,0.06) 0%,transparent 60%),
+  repeating-linear-gradient(45deg,transparent,transparent 34px,rgba(184,134,11,0.025) 34px,rgba(184,134,11,0.025) 35px),
+  repeating-linear-gradient(-45deg,transparent,transparent 34px,rgba(184,134,11,0.025) 34px,rgba(184,134,11,0.025) 35px);
+  pointer-events:none;}
 .block-container{padding-top:0!important;max-width:1380px!important;position:relative;z-index:1;}
 #MainMenu,footer,header{visibility:hidden;}
+
+/* ── Cards ── */
 .card{background:linear-gradient(145deg,#fffdf8 0%,#fff8ec 100%);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.8rem 2rem;margin:.7rem 0;box-shadow:var(--shadow-royal);position:relative;transition:border-color .3s,box-shadow .3s;}
 .card::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:60%;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);}
 .card:hover{border-color:var(--gold-border);box-shadow:var(--shadow-royal),0 0 30px rgba(201,168,76,0.08);}
+
+/* ── Section headings ── */
 .sec-head{display:flex;align-items:center;gap:.9rem;font-family:'Cinzel',serif;font-size:.68rem;font-weight:600;color:var(--gold);letter-spacing:3.5px;text-transform:uppercase;margin:2rem 0 1rem;}
-.sec-head::before,.sec-head::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);}
-.sec-head::before{background:linear-gradient(90deg,transparent,var(--gold-dim));}
-.sec-head::after{background:linear-gradient(90deg,var(--gold-dim),transparent);}
+.sec-head::before{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim));}
+.sec-head::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--gold-dim),transparent);}
+
+/* ── Inputs ── */
 .stTextInput input,.stNumberInput input,.stTextArea textarea,.stDateInput input{background:#fffdf8!important;color:var(--text)!important;border:1px solid var(--gold-line)!important;border-radius:var(--radius-sm)!important;font-family:'EB Garamond',serif!important;font-size:1rem!important;transition:border-color .25s,box-shadow .25s!important;}
 .stTextInput input:focus,.stNumberInput input:focus,.stTextArea textarea:focus{border-color:var(--gold)!important;box-shadow:0 0 0 3px rgba(201,168,76,0.12)!important;outline:none!important;}
 div[data-baseweb="select"]>div{background:#fffdf8!important;border:1px solid var(--gold-line)!important;border-radius:var(--radius-sm)!important;color:var(--text)!important;font-family:'EB Garamond',serif!important;}
 label{color:var(--text-2)!important;font-family:'Cinzel',serif!important;font-size:.68rem!important;font-weight:600!important;letter-spacing:1.5px!important;text-transform:uppercase!important;}
-.stButton>button{background:linear-gradient(135deg,#8a6e2f 0%,#c9a84c 40%,#e8c96a 60%,#c9a84c 80%,#8a6e2f 100%)!important;color:#07090f!important;border:1px solid rgba(232,201,106,0.5)!important;border-radius:var(--radius-sm)!important;padding:.75rem 1.6rem!important;font-family:'Cinzel',serif!important;font-size:.78rem!important;font-weight:700!important;letter-spacing:2.5px!important;text-transform:uppercase!important;width:100%!important;transition:all .3s ease!important;box-shadow:0 3px 16px rgba(201,168,76,0.3),inset 0 1px 0 rgba(255,255,255,0.2)!important;position:relative!important;overflow:hidden!important;}
-.stButton>button:hover{background:linear-gradient(135deg,#9a7e3f 0%,#d9b85c 40%,#f8d97a 60%,#d9b85c 80%,#9a7e3f 100%)!important;transform:translateY(-2px)!important;box-shadow:0 6px 24px rgba(201,168,76,0.45),inset 0 1px 0 rgba(255,255,255,0.25)!important;}
-.stButton>button:active{transform:translateY(0)!important;box-shadow:0 2px 8px rgba(201,168,76,0.3)!important;}
+
+/* ── Buttons ── */
+.stButton>button{background:linear-gradient(135deg,#8a6e2f 0%,#c9a84c 40%,#e8c96a 60%,#c9a84c 80%,#8a6e2f 100%)!important;color:#07090f!important;border:1px solid rgba(232,201,106,0.5)!important;border-radius:var(--radius-sm)!important;padding:.75rem 1.6rem!important;font-family:'Cinzel',serif!important;font-size:.78rem!important;font-weight:700!important;letter-spacing:2.5px!important;text-transform:uppercase!important;width:100%!important;transition:all .3s ease!important;box-shadow:0 3px 16px rgba(201,168,76,0.3),inset 0 1px 0 rgba(255,255,255,0.2)!important;}
+.stButton>button:hover{background:linear-gradient(135deg,#9a7e3f 0%,#d9b85c 40%,#f8d97a 60%,#d9b85c 80%,#9a7e3f 100%)!important;transform:translateY(-2px)!important;box-shadow:0 6px 24px rgba(201,168,76,0.45)!important;}
+.stButton>button:active{transform:translateY(0)!important;}
 .stDownloadButton>button{background:linear-gradient(135deg,#0a2e18 0%,#1a6a38 40%,#2a8a50 60%,#1a6a38 80%,#0a2e18 100%)!important;color:#c9e8c8!important;border:1px solid rgba(74,222,128,0.3)!important;border-radius:var(--radius-sm)!important;padding:.75rem 1.6rem!important;font-family:'Cinzel',serif!important;font-size:.78rem!important;font-weight:700!important;letter-spacing:2.5px!important;text-transform:uppercase!important;width:100%!important;transition:all .3s ease!important;box-shadow:0 3px 16px rgba(30,132,73,0.3)!important;}
-.stDownloadButton>button:hover{background:linear-gradient(135deg,#0d3a1e 0%,#1f7a42 40%,#32a060 60%,#1f7a42 80%,#0d3a1e 100%)!important;transform:translateY(-2px)!important;box-shadow:0 6px 24px rgba(30,132,73,0.45)!important;}
+.stDownloadButton>button:hover{background:linear-gradient(135deg,#0d3a1e 0%,#1f7a42 40%,#32a060 60%,#1f7a42 80%,#0d3a1e 100%)!important;transform:translateY(-2px)!important;}
+
+/* ── File uploader ── */
 [data-testid="stFileUploader"]{background:#fffdf8!important;border:2px dashed var(--gold-line)!important;border-radius:var(--radius)!important;padding:1.6rem!important;transition:border-color .3s,box-shadow .3s!important;}
 [data-testid="stFileUploader"]:hover{border-color:var(--gold)!important;box-shadow:0 0 24px var(--gold-muted)!important;}
+
+/* ── Diagnosis badges ── */
 .diag-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'Cinzel',serif;font-size:1.3rem;font-weight:700;padding:.5rem 1.2rem;border-radius:4px;letter-spacing:1px;}
-.diag-normal{background:var(--emerald-dim);color:#4ade80;border:1px solid rgba(74,222,128,0.35);box-shadow:0 0 20px rgba(74,222,128,0.1);}
-.diag-parkinson{background:var(--crimson-dim);color:#f87171;border:1px solid rgba(248,113,113,0.35);box-shadow:0 0 20px rgba(248,113,113,0.1);}
-.stat-tile{background:linear-gradient(145deg,#fffdf8,#fff6e8);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.1rem 1.3rem;text-align:center;box-shadow:var(--shadow-royal);position:relative;}
+.diag-normal{background:var(--emerald-dim);color:#4ade80;border:1px solid rgba(74,222,128,0.35);}
+.diag-parkinson{background:var(--crimson-dim);color:#f87171;border:1px solid rgba(248,113,113,0.35);}
+.stat-tile{background:linear-gradient(145deg,#fffdf8,#fff6e8);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.1rem 1.3rem;text-align:center;box-shadow:var(--shadow-royal);}
 .stat-value{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#9a6e00;line-height:1.1;margin-bottom:.3rem;}
 .stat-label{font-family:'Cinzel',serif;font-size:.58rem;color:var(--text-2);letter-spacing:2px;text-transform:uppercase;}
 .risk-low{background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.3);border-radius:4px;padding:.25rem 1rem;font-size:.75rem;font-family:'Cinzel',serif;font-weight:600;letter-spacing:1px;}
@@ -598,22 +643,92 @@ label{color:var(--text-2)!important;font-family:'Cinzel',serif!important;font-si
 .prob-fill-n{height:100%;border-radius:3px;background:linear-gradient(90deg,#065f46,#4ade80);transition:width .9s cubic-bezier(.22,1,.36,1);}
 .prob-fill-p{height:100%;border-radius:3px;background:linear-gradient(90deg,#7f1d1d,#f87171);transition:width .9s cubic-bezier(.22,1,.36,1);}
 .img-frame{border:1px solid var(--gold-line);border-radius:var(--radius);overflow:hidden;background:#f5f0e8;box-shadow:var(--shadow-royal);}
-.img-caption{font-family:'Cinzel',serif;font-size:.6rem;color:#b89040;text-align:center;padding:.45rem 0 .25rem;letter-spacing:1.5px;text-transform:uppercase;background:rgba(245,240,232,0.8);}
+.img-caption{font-family:'Cinzel',serif;font-size:.6rem;color:#b89040;text-align:center;padding:.45rem 0 .25rem;letter-spacing:1.5px;text-transform:uppercase;}
 .hm-legend{display:flex;align-items:center;gap:.6rem;font-family:'Cinzel',serif;font-size:.6rem;color:#b89040;margin-top:.6rem;letter-spacing:1px;}
 .hm-bar{flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#00008b,#0000ff,#00ff00,#ffff00,#ff0000);}
-.stTabs [data-baseweb="tab-list"]{background:#fffdf8!important;border:1px solid var(--gold-line)!important;border-radius:var(--radius)!important;padding:.35rem!important;gap:.25rem!important;}
-.stTabs [data-baseweb="tab"]{font-family:'Cinzel',serif!important;font-size:.75rem!important;font-weight:600!important;color:#7a5a1a!important;border-radius:var(--radius-sm)!important;padding:.6rem 1.3rem!important;letter-spacing:1.5px!important;transition:all .25s!important;}
-.stTabs [data-baseweb="tab"]:hover{color:#9a6e00!important;}
-.stTabs [aria-selected="true"]{background:rgba(184,134,11,0.10)!important;color:#7a4f00!important;border:1px solid rgba(184,134,11,0.3)!important;}
-.stTabs [data-baseweb="tab-highlight"],.stTabs [data-baseweb="tab-border"]{display:none!important;}
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#fdf8f0,#fdf3e7)!important;border-right:1px solid var(--gold-line)!important;}
+
+/* ── TABS — fixed alignment & style ── */
+.stTabs{margin-top:.5rem;}
+.stTabs [data-baseweb="tab-list"]{
+  background:linear-gradient(135deg,#fdf3dc,#fffdf8)!important;
+  border:1.5px solid rgba(184,134,11,0.3)!important;
+  border-radius:12px!important;
+  padding:.4rem .5rem!important;
+  gap:.3rem!important;
+  justify-content:center!important;
+  align-items:center!important;
+  overflow:visible!important;
+}
+.stTabs [data-baseweb="tab"]{
+  font-family:'Cinzel',serif!important;
+  font-size:.72rem!important;
+  font-weight:700!important;
+  color:#7a5a1a!important;
+  border-radius:8px!important;
+  padding:.65rem 1.6rem!important;
+  letter-spacing:1.5px!important;
+  transition:all .25s!important;
+  white-space:nowrap!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:.4rem!important;
+  min-height:2.4rem!important;
+}
+.stTabs [data-baseweb="tab"]:hover{
+  color:#7a4f00!important;
+  background:rgba(184,134,11,0.08)!important;
+}
+.stTabs [aria-selected="true"]{
+  background:linear-gradient(135deg,rgba(184,134,11,0.18),rgba(184,134,11,0.10))!important;
+  color:#5a3000!important;
+  border:1px solid rgba(184,134,11,0.4)!important;
+  box-shadow:0 2px 8px rgba(184,134,11,0.15)!important;
+}
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"]{display:none!important;}
+.stTabs [data-baseweb="tab-panel"]{padding-top:1.2rem!important;}
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#fdf8f0,#fdf3e7)!important;border-right:1.5px solid var(--gold-line)!important;}
 [data-testid="stSidebar"] *{font-family:'EB Garamond',serif!important;}
 [data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3{font-family:'Cinzel',serif!important;color:#9a6e00!important;letter-spacing:2px!important;}
+
+/* ── Sidebar toggle button — gold circle, no emoji tricks ── */
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button {
+  background:linear-gradient(135deg,#8a6e2f,#c9a84c,#e8c96a,#c9a84c,#8a6e2f)!important;
+  border:2px solid rgba(232,201,106,0.9)!important;
+  border-radius:12px!important;
+  width:44px!important; height:44px!important;
+  min-width:44px!important; min-height:44px!important;
+  box-shadow:0 4px 16px rgba(184,134,11,0.45),inset 0 1px 0 rgba(255,255,255,0.25)!important;
+  transition:all .3s ease!important;
+}
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="collapsedControl"] button:hover{
+  transform:scale(1.1)!important;
+  box-shadow:0 6px 24px rgba(184,134,11,0.65)!important;
+}
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="collapsedControl"] button svg{
+  fill:#3a2000!important;
+  stroke:#3a2000!important;
+  width:20px!important;
+  height:20px!important;
+}
+
+/* ── Sidebar metrics + radio ── */
 [data-testid="stMetric"]{background:linear-gradient(145deg,#fffdf8,#fff6e8)!important;border:1px solid var(--gold-line)!important;border-radius:var(--radius)!important;padding:1rem 1.2rem!important;}
 [data-testid="stMetricValue"]{font-family:'Playfair Display',serif!important;font-size:1.6rem!important;font-weight:700!important;color:#9a6e00!important;}
 [data-testid="stMetricLabel"]{color:#7a5a1a!important;font-family:'Cinzel',serif!important;font-size:.58rem!important;letter-spacing:1.5px!important;text-transform:uppercase!important;}
 .stProgress>div>div>div{background:linear-gradient(90deg,var(--gold-dim),var(--gold-bright))!important;border-radius:3px!important;}
 [data-testid="stDataFrame"]{border-radius:var(--radius)!important;border:1px solid var(--gold-line)!important;overflow:hidden!important;}
+.stRadio>label{font-family:'Cinzel',serif!important;font-size:.72rem!important;font-weight:600!important;color:#7a4f00!important;letter-spacing:1px!important;}
+.stRadio [data-baseweb="radio"] div[role="radio"]{border-color:var(--gold-dim)!important;}
+.stRadio [data-baseweb="radio"] div[aria-checked="true"]{background:var(--gold-dim)!important;border-color:var(--gold)!important;}
+
+/* ── Misc ── */
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:#fdf8f0;}
 ::-webkit-scrollbar-thumb{background:#c9a84c;border-radius:10px;}
@@ -621,83 +736,83 @@ hr{border:none!important;height:1px!important;background:linear-gradient(90deg,t
 .stAlert{border-radius:var(--radius)!important;font-family:'EB Garamond',serif!important;}
 .team-card{background:linear-gradient(145deg,#fffdf8,#fff6e8);border:1px solid var(--gold-line);border-radius:var(--radius);padding:1.4rem 1rem;text-align:center;transition:border-color .3s,transform .3s;}
 .team-card:hover{border-color:var(--gold-border);transform:translateY(-4px);box-shadow:var(--shadow-gold);}
-/* ── Sidebar toggle / collapse button — all known selectors ── */
-[data-testid="stSidebarCollapsedControl"] button,
-[data-testid="collapsedControl"] button,
-button[kind="header"],
-[data-testid="baseButton-header"],
-section[data-testid="stSidebar"] + div button,
-div[data-testid="stSidebarCollapsedControl"] > button {
-  background:linear-gradient(135deg,#8a6e2f,#c9a84c,#e8c96a,#c9a84c,#8a6e2f) !important;
-  border:1px solid rgba(232,201,106,0.7) !important;
-  border-radius:10px !important;
-  color:#07090f !important;
-  font-size:1.3rem !important;
-  width:46px !important;
-  height:46px !important;
-  min-width:46px !important;
-  min-height:46px !important;
-  box-shadow:0 4px 16px rgba(201,168,76,0.5),inset 0 1px 0 rgba(255,255,255,0.3) !important;
-  transition:all .3s ease !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  position:relative !important;
-}
-[data-testid="stSidebarCollapsedControl"] button::before,
-[data-testid="collapsedControl"] button::before,
-div[data-testid="stSidebarCollapsedControl"] > button::before {
-  content:'🧠' !important;
-  font-size:1.3rem !important;
-  position:absolute !important;
-}
-[data-testid="stSidebarCollapsedControl"] button svg,
-[data-testid="collapsedControl"] button svg,
-div[data-testid="stSidebarCollapsedControl"] > button svg {
-  display:none !important;
-}
-[data-testid="stSidebarCollapsedControl"] button:hover,
-[data-testid="collapsedControl"] button:hover,
-div[data-testid="stSidebarCollapsedControl"] > button:hover {
-  transform:scale(1.1) rotate(-5deg) !important;
-  box-shadow:0 8px 24px rgba(201,168,76,0.7) !important;
-}
-.stRadio>label{
-  font-family:'Cinzel',serif !important;
-  font-size:.72rem !important;
-  font-weight:600 !important;
-  color:#7a4f00 !important;
-  letter-spacing:1px !important;
-}
-.stRadio [data-baseweb="radio"] div[role="radio"] {
-  border-color:var(--gold-dim) !important;
-}
-.stRadio [data-baseweb="radio"] div[aria-checked="true"] {
-  background:var(--gold-dim) !important;
-  border-color:var(--gold) !important;
-}
-.model-selected {
-  background:linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08));
-  border:1px solid rgba(184,134,11,0.4);
-  border-left:4px solid #c9a84c;
-  border-radius:8px;
-  padding:.6rem .9rem;
-  margin:.3rem 0;
-}
-.model-option {
-  border:1px solid rgba(184,134,11,0.15);
-  border-radius:8px;
-  padding:.6rem .9rem;
-  margin:.3rem 0;
-  cursor:pointer;
-  transition:all .2s;
-}
-.model-option:hover {
-  border-color:rgba(184,134,11,0.4);
-  background:rgba(184,134,11,0.05);
-}
+.model-selected{background:linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08));border:1px solid rgba(184,134,11,0.4);border-left:4px solid #c9a84c;border-radius:8px;padding:.6rem .9rem;margin:.3rem 0;}
 </style>
 """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ABOUT PROJECT  — defined at module level (not conditionally)
+# ══════════════════════════════════════════════════════════════════════════════
+@st.dialog("📋 About the Project", width="large")
+def _show_project_dialog():
+    st.markdown(
+        '<div style="font-family:Cinzel,serif;font-size:.68rem;color:#b8860b;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.5rem;">'
+        '⚗ B.Tech Final Year Project · 2025-26 · Dept. of ECE · BVC College of Engineering</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="font-family:Playfair Display,serif;font-size:1.35rem;font-weight:700;'
+        'color:#2c1a00;margin-bottom:.9rem;line-height:1.35;">'
+        "Parkinson's Disease Detection Using Deep Learning on Brain MRI"
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#5a3a0a;'
+        'line-height:1.85;margin-bottom:1.1rem;">'
+        'This project applies <strong style="color:#7a4f00;">Hybrid Deep Learning</strong> to classify '
+        'brain MRI scans for early Parkinson\'s detection. Six models are trained on '
+        '<em>irfansheriff/parkinsons-brain-mri-dataset</em> (831 scans — 610 Normal, 221 Parkinson): '
+        '<strong style="color:#7a4f00;">ResNet50</strong>, <strong style="color:#7a4f00;">EfficientNet-B4</strong>, '
+        '<strong style="color:#7a4f00;">ViT-B/16</strong>, <strong style="color:#7a4f00;">MiniSegNet</strong>, '
+        '<strong style="color:#7a4f00;">HybridNet_RV</strong> (ResNet50+ViT Cross-Attention), '
+        'and <strong style="color:#7a4f00;">HybridNet_EV</strong> (EfficientNet-B4+ViT Cross-Attention).'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    _d1, _d2 = st.columns(2, gap='medium')
+    with _d1:
+        for _t, _body in [
+            ('📦 Dataset', '831 scans (Kaggle) · 610 Normal · 221 Parkinson<br>Split: 581 Train · 125 Val · 125 Test<br>WeightedRandomSampler for class balance'),
+            ('⚙ Training Config', 'SEED=42 · IMG=224×224 · BS=16 · EPOCHS=30<br>MixUp (α=0.3) · Label Smoothing (ε=0.1)<br>CosineAnnealingLR · Early Stopping (p=7)<br>AMP mixed precision · Grad clip=1.0'),
+        ]:
+            st.markdown(
+                f'<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.18);'
+                f'border-radius:10px;padding:.9rem 1.1rem;margin-bottom:.7rem;">'
+                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#b8860b;'
+                f'letter-spacing:2px;text-transform:uppercase;margin-bottom:.5rem;">{_t}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">{_body}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    with _d2:
+        for _t, _body in [
+            ('📊 Test Results', 'ResNet50: <b>100%</b> · EfficientNet: <b>99.2%</b><br>ViT-B/16: <b>100%</b> · MiniSegNet: <b>97.6%</b><br>HybridNet_RV: <b>96%</b> · HybridNet_EV: <b>100%</b><br>Ensemble: <b style="color:#1a6a38;">100%</b>'),
+            ('🖥 Tech Stack', 'PyTorch · timm · torchvision · scikit-learn<br>OpenCV · Seaborn · Streamlit · ReportLab<br>Google Colab · Tesla T4 GPU (15.6 GB VRAM)'),
+        ]:
+            st.markdown(
+                f'<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.18);'
+                f'border-radius:10px;padding:.9rem 1.1rem;margin-bottom:.7rem;">'
+                f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#b8860b;'
+                f'letter-spacing:2px;text-transform:uppercase;margin-bottom:.5rem;">{_t}</div>'
+                f'<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">{_body}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown(
+        '<div style="background:rgba(30,132,73,0.07);border:1px solid rgba(30,132,73,0.22);'
+        'border-left:4px solid #1a6a38;border-radius:8px;padding:.9rem 1.2rem;">'
+        '<div style="font-family:Cinzel,serif;font-size:.58rem;color:#1a6a38;'
+        'letter-spacing:2px;text-transform:uppercase;margin-bottom:.35rem;">🏆 Key Innovation</div>'
+        '<div style="font-family:EB Garamond,serif;font-size:.95rem;color:#0a2e18;line-height:1.75;">'
+        '<strong>Cross-Attention Fusion</strong> — bridges CNN spatial feature maps with ViT global '
+        'patch tokens via multi-head cross-attention, combining local texture (CNN) and global context '
+        '(ViT) for superior Parkinson\'s detection from brain MRI.'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -716,189 +831,85 @@ logo_html = (
 
 st.markdown(
     '<div style="background:linear-gradient(180deg,#fdf3dc 0%,#fdf8f0 60%,#fdf8f0 100%);'
-    'border-bottom:1px solid rgba(184,134,11,0.22);padding:2.8rem 2rem 2.4rem;'
-    'display:flex;flex-direction:column;align-items:center;gap:1rem;'
+    'border-bottom:1px solid rgba(184,134,11,0.22);padding:2.8rem 2rem 2.2rem;'
+    'display:flex;flex-direction:column;align-items:center;gap:.9rem;'
     'position:relative;overflow:hidden;">'
+    # Top gold bar
     '<div style="position:absolute;top:0;left:0;right:0;height:3px;'
     'background:linear-gradient(90deg,transparent,#c9a84c,#e8c96a,#c9a84c,transparent);"></div>'
+    # Corner ornaments
     '<div style="position:absolute;top:14px;left:24px;font-size:.9rem;'
-    'color:rgba(184,134,11,0.4);font-family:serif;letter-spacing:4px;">✦ ✦ ✦</div>'
+    'color:rgba(184,134,11,0.35);font-family:serif;letter-spacing:4px;">✦ ✦ ✦</div>'
     '<div style="position:absolute;top:14px;right:24px;font-size:.9rem;'
-    'color:rgba(184,134,11,0.4);font-family:serif;letter-spacing:4px;">✦ ✦ ✦</div>'
+    'color:rgba(184,134,11,0.35);font-family:serif;letter-spacing:4px;">✦ ✦ ✦</div>'
     + logo_html +
+    # Main title
     '<div style="font-family:Cinzel,serif;font-size:2.8rem;font-weight:900;color:#2c1a00;'
     'letter-spacing:8px;line-height:1;text-align:center;'
     'text-shadow:0 2px 12px rgba(184,134,11,0.15);">'
     'NEUROSCAN&nbsp;<span style="color:#b8860b;">AI</span></div>'
+    # Subtitle
     '<div style="font-family:Cormorant Garamond,serif;font-size:1rem;font-style:italic;'
     'color:#9a7030;letter-spacing:4px;text-align:center;">'
-    "Parkinson's Detection · Brain MRI · Deep Learning</div>"
+    "Parkinson\u2019s Detection \u00b7 Brain MRI \u00b7 Deep Learning</div>"
+    # Project title pill
     '<div style="background:linear-gradient(135deg,rgba(184,134,11,0.12),rgba(184,134,11,0.06));'
     'border:1px solid rgba(184,134,11,0.35);border-radius:8px;'
-    'padding:.7rem 2rem;margin-top:.3rem;position:relative;overflow:hidden;">'
-    '<div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(232,201,106,0.08),transparent);"></div>'
-    '<div style="font-family:Cinzel,serif;font-size:.95rem;font-weight:700;'
-    'color:#7a4f00;letter-spacing:3px;text-align:center;text-transform:uppercase;'
-    'text-shadow:0 1px 4px rgba(184,134,11,0.2);position:relative;z-index:1;">'
-    'Parkinson\u2019s Disease Detection Using Deep Learning on Brain MRI'
+    'padding:.65rem 2rem;margin-top:.1rem;position:relative;overflow:hidden;">'
+    '<div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,'
+    'rgba(232,201,106,0.08),transparent);"></div>'
+    '<div style="font-family:Cinzel,serif;font-size:.9rem;font-weight:700;'
+    'color:#7a4f00;letter-spacing:2.5px;text-align:center;text-transform:uppercase;'
+    'position:relative;z-index:1;">'
+    "Parkinson\u2019s Disease Detection Using Deep Learning on Brain MRI"
     '</div></div>'
-    '<div style="display:flex;align-items:center;gap:1rem;width:60%;max-width:400px;">'
+    # Divider
+    '<div style="display:flex;align-items:center;gap:1rem;width:60%;max-width:380px;">'
     '<div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#c9a84c);"></div>'
-    '<span style="color:#b8860b;font-size:.7rem;letter-spacing:4px;">✦</span>'
+    '<span style="color:#b8860b;font-size:.7rem;">✦</span>'
     '<div style="flex:1;height:1px;background:linear-gradient(90deg,#c9a84c,transparent);"></div>'
     '</div>'
-    '<div style="display:flex;gap:1.2rem;flex-wrap:wrap;justify-content:center;">'
+    # Feature badges
+    '<div style="display:flex;gap:.8rem;flex-wrap:wrap;justify-content:center;">'
     '<span style="background:rgba(184,134,11,0.08);border:1px solid rgba(184,134,11,0.25);'
-    'border-radius:3px;padding:.3rem 1rem;font-family:Cinzel,serif;font-size:.65rem;'
-    'color:#8a5e00;letter-spacing:1.5px;">⚙ ResNet50+ViT / EffNet+ViT</span>'
+    'border-radius:20px;padding:.28rem .9rem;font-family:Cinzel,serif;font-size:.62rem;'
+    'color:#8a5e00;letter-spacing:1px;">⚙ ResNet50+ViT / EffNet+ViT</span>'
     '<span style="background:rgba(184,134,11,0.08);border:1px solid rgba(184,134,11,0.25);'
-    'border-radius:3px;padding:.3rem 1rem;font-family:Cinzel,serif;font-size:.65rem;'
-    'color:#8a5e00;letter-spacing:1.5px;">◈ 100% 5-Fold CV Accuracy</span>'
+    'border-radius:20px;padding:.28rem .9rem;font-family:Cinzel,serif;font-size:.62rem;'
+    'color:#8a5e00;letter-spacing:1px;">◈ 100% Ensemble Accuracy</span>'
     '<span style="background:rgba(184,134,11,0.08);border:1px solid rgba(184,134,11,0.25);'
-    'border-radius:3px;padding:.3rem 1rem;font-family:Cinzel,serif;font-size:.65rem;'
-    'color:#8a5e00;letter-spacing:1.5px;">✦ Grad-CAM XAI</span>'
+    'border-radius:20px;padding:.28rem .9rem;font-family:Cinzel,serif;font-size:.62rem;'
+    'color:#8a5e00;letter-spacing:1px;">✦ Grad-CAM XAI</span>'
     '<span style="background:rgba(184,134,11,0.08);border:1px solid rgba(184,134,11,0.25);'
-    'border-radius:3px;padding:.3rem 1rem;font-family:Cinzel,serif;font-size:.65rem;'
-    'color:#8a5e00;letter-spacing:1.5px;">⬡ Batch Analysis</span>'
+    'border-radius:20px;padding:.28rem .9rem;font-family:Cinzel,serif;font-size:.62rem;'
+    'color:#8a5e00;letter-spacing:1px;">⬡ Batch Analysis</span>'
     '</div>'
-    # ── Esteemed Guidance line ─────────────────────────────────────────
-    '<div style="display:flex;align-items:center;gap:.8rem;margin-top:.3rem;">'
-    '<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3));"></div>'
+    # Guidance line
+    '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;justify-content:center;">'
+    '<div style="height:1px;width:60px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.4));"></div>'
     '<div style="background:linear-gradient(135deg,rgba(184,134,11,0.10),rgba(184,134,11,0.05));'
-    'border:1px solid rgba(184,134,11,0.3);border-radius:20px;'
-    'padding:.35rem 1.4rem;text-align:center;">'
-    '<span style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:.88rem;'
-    'color:#9a7030;letter-spacing:1.5px;">Under the Esteemed Guidance of</span>'
-    '&nbsp;&nbsp;'
-    '<span style="font-family:Cinzel,serif;font-size:.88rem;font-weight:700;'
-    'color:#7a4f00;letter-spacing:1px;">Mr. N P U V S N Pavan Kumar</span>'
-    '&nbsp;'
-    '<span style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:.8rem;'
-    'color:#b8860b;">(Asst. Professor, Dept. of ECE)</span>'
+    'border:1px solid rgba(184,134,11,0.28);border-radius:20px;padding:.3rem 1.2rem;">'
+    '<span style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:.88rem;color:#9a7030;">'
+    'Under the Esteemed Guidance of&nbsp;</span>'
+    '<span style="font-family:Cinzel,serif;font-size:.85rem;font-weight:700;color:#7a4f00;">'
+    'Mr. N P U V S N Pavan Kumar</span>'
+    '<span style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:.82rem;color:#b8860b;">'
+    '&nbsp;· Asst. Professor, ECE</span>'
     '</div>'
-    '<div style="flex:1;max-width:120px;height:1px;background:linear-gradient(90deg,rgba(184,134,11,0.3),transparent);"></div>'
+    '<div style="height:1px;width:60px;background:linear-gradient(90deg,rgba(184,134,11,0.4),transparent);"></div>'
     '</div>'
+    # Bottom bar
     '<div style="position:absolute;bottom:0;left:0;right:0;height:1px;'
     'background:linear-gradient(90deg,transparent,rgba(184,134,11,0.3),transparent);"></div>'
     '</div>',
     unsafe_allow_html=True,
 )
 
-# ── About Project Dialog ──────────────────────────────────────────────────────
-_hc1, _hc2, _hc3 = st.columns([3, 2, 3])
-with _hc2:
+# ── About Project button — centred below hero ─────────────────────────────────
+_b1, _b2, _b3 = st.columns([4, 2, 4])
+with _b2:
     if st.button('📋 About Project', key='hero_about_btn'):
-        st.session_state['show_project_dialog'] = True
-
-if st.session_state.get('show_project_dialog', False):
-    @st.dialog("📋 About the Project", width="large")
-    def _project_dialog():
-        st.markdown(
-            '<div style="font-family:Cinzel,serif;font-size:.7rem;color:#b8860b;'
-            'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">'
-            '⚗ B.Tech Final Year Project · 2025-26 · Dept. of ECE · BVC College of Engineering</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="font-family:Playfair Display,serif;font-size:1.4rem;font-weight:700;'
-            'color:#2c1a00;margin-bottom:1rem;line-height:1.35;">'
-            "Parkinson's Disease Detection Using Deep Learning on Brain MRI"
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="font-family:EB Garamond,serif;font-size:1rem;color:#5a3a0a;'
-            'line-height:1.85;margin-bottom:1.2rem;">'
-            'This project applies <strong style="color:#8a5e00;">Hybrid Deep Learning</strong> architectures to classify '
-            'brain MRI scans for early detection of Parkinson\'s Disease. '
-            'Using the <em>irfansheriff/parkinsons-brain-mri-dataset</em> (831 scans: 610 Normal · 221 Parkinson), '
-            'six models are trained and validated: <strong style="color:#8a5e00;">ResNet50</strong>, '
-            '<strong style="color:#8a5e00;">EfficientNet-B4</strong>, '
-            '<strong style="color:#8a5e00;">ViT-B/16</strong>, '
-            '<strong style="color:#8a5e00;">MiniSegNet</strong>, '
-            '<strong style="color:#8a5e00;">HybridNet_RV</strong> (ResNet50 + ViT via Cross-Attention Fusion), '
-            'and <strong style="color:#8a5e00;">HybridNet_EV</strong> (EfficientNet-B4 + ViT via Cross-Attention Fusion).'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        _d1, _d2 = st.columns(2)
-        with _d1:
-            st.markdown(
-                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
-                'border-radius:10px;padding:1rem 1.2rem;margin-bottom:.8rem;">'
-                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
-                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">📦 Dataset</div>'
-                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
-                '831 total scans (Kaggle)<br>'
-                '610 Normal · 221 Parkinson<br>'
-                'Split: 581 Train · 125 Val · 125 Test<br>'
-                'WeightedRandomSampler for class balance'
-                '</div></div>'
-                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
-                'border-radius:10px;padding:1rem 1.2rem;">'
-                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
-                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">⚙ Training Config</div>'
-                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
-                'SEED=42 · IMG=224×224 · BS=16 · EPOCHS=30<br>'
-                'MixUp (α=0.3) · Label Smoothing (ε=0.1)<br>'
-                'CosineAnnealingLR · Early Stopping (patience=7)<br>'
-                'AMP mixed precision · Gradient clip=1.0'
-                '</div></div>',
-                unsafe_allow_html=True,
-            )
-        with _d2:
-            st.markdown(
-                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
-                'border-radius:10px;padding:1rem 1.2rem;margin-bottom:.8rem;">'
-                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
-                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">📊 Results</div>'
-                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
-                'ResNet50: <strong>100%</strong> · EfficientNet: <strong>99.2%</strong><br>'
-                'ViT-B/16: <strong>100%</strong> · MiniSegNet: <strong>97.6%</strong><br>'
-                'HybridNet_RV: <strong>96%</strong> · HybridNet_EV: <strong>100%</strong><br>'
-                'Ensemble: <strong style="color:#1a6a38;">100%</strong> accuracy'
-                '</div></div>'
-                '<div style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.2);'
-                'border-radius:10px;padding:1rem 1.2rem;">'
-                '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#b8860b;'
-                'letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem;">🖥 Tech Stack</div>'
-                '<div style="font-family:EB Garamond,serif;font-size:.92rem;color:#5a3a0a;line-height:1.7;">'
-                'PyTorch · timm · torchvision<br>'
-                'scikit-learn · OpenCV · Seaborn<br>'
-                'Streamlit · ReportLab<br>'
-                'Google Colab · Tesla T4 GPU (15.6 GB)'
-                '</div></div>',
-                unsafe_allow_html=True,
-            )
-        st.markdown(
-            '<div style="background:rgba(30,132,73,0.06);border:1px solid rgba(30,132,73,0.2);'
-            'border-left:4px solid #1a6a38;border-radius:8px;padding:.8rem 1.2rem;margin-top:.5rem;">'
-            '<div style="font-family:Cinzel,serif;font-size:.6rem;color:#1a6a38;'
-            'letter-spacing:2px;text-transform:uppercase;margin-bottom:.3rem;">🏆 Key Innovation</div>'
-            '<div style="font-family:EB Garamond,serif;font-size:.95rem;color:#0a2e18;line-height:1.7;">'
-            '<strong>Cross-Attention Fusion</strong> — a novel architecture that bridges CNN spatial '
-            'feature maps with ViT global patch tokens via multi-head cross-attention, combining '
-            'the best of local texture recognition (CNN) and global context understanding (ViT) '
-            'for superior Parkinson\'s detection from brain MRI scans.'
-            '</div></div>',
-            unsafe_allow_html=True,
-        )
-        if st.button('✕ Close', key='close_project_dialog'):
-            st.session_state['show_project_dialog'] = False
-            st.rerun()
-    _project_dialog()
-
-# ── Session state ─────────────────────────────────────────────────────────────
-for k, v in [
-    ('prediction_made',   False),
-    ('patient_data',      {}),
-    ('prediction_result', {}),
-    ('batch_results',     []),
-    ('last_model',        ''),
-    ('show_project_dialog', False),
-]:
-    if k not in st.session_state:
-        st.session_state[k] = v
+        _show_project_dialog()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -910,12 +921,13 @@ with st.sidebar:
         '<div style="background:linear-gradient(135deg,#fdf3dc,#fdf8f0);'
         'border-bottom:2px solid rgba(184,134,11,0.3);'
         'padding:1.2rem 1rem 1rem;margin:-1rem -1rem .8rem;text-align:center;">'
+        '<div style="font-size:1.8rem;margin-bottom:.3rem;">🧠</div>'
         '<div style="font-family:Cinzel,serif;font-size:1rem;font-weight:900;'
         'color:#7a4f00;letter-spacing:4px;">⚕ NEUROSCAN AI</div>'
         '<div style="font-family:EB Garamond,serif;font-size:.78rem;font-style:italic;'
-        'color:#9a7030;margin-top:.25rem;">Model Control Panel</div>'
+        'color:#9a7030;margin-top:.2rem;">Model Control Panel</div>'
         '<div style="height:2px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);'
-        'margin:.7rem 0 0;"></div></div>',
+        'margin:.6rem 0 0;"></div></div>',
         unsafe_allow_html=True,
     )
 
@@ -926,10 +938,10 @@ with st.sidebar:
     )
 
     MODEL_DISPLAY = {
-        "🔀 HybridNet RV  —  ResNet50 + ViT":     "HybridNet_RV (ResNet50 + ViT)",
-        "🔀 HybridNet EV  —  EffNet + ViT":        "HybridNet_EV (EfficientNet + ViT)",
-        "👁 ViT-B/16  —  Vision Transformer":       "ViT-B16  —  Vision Transformer",
-        "✦ All 3 Models  —  Ensemble (recommended)":"__ALL__",
+        "🔀 HybridNet RV  —  ResNet50 + ViT":      "HybridNet_RV (ResNet50 + ViT)",
+        "🔀 HybridNet EV  —  EffNet + ViT":         "HybridNet_EV (EfficientNet + ViT)",
+        "👁 ViT-B/16  —  Vision Transformer":        "ViT-B16  —  Vision Transformer",
+        "✦ All 3 Models  —  Ensemble (recommended)": "__ALL__",
     }
 
     selected_display = st.radio(
@@ -946,28 +958,23 @@ with st.sidebar:
         "ViT-B16  —  Vision Transformer":   "99.9%",
         "__ALL__":                           "99.8%",
     }
-    acc = selected_acc.get(model_choice_key, "—")
+    acc        = selected_acc.get(model_choice_key, "—")
     mode_label = "All 3 Models + Ensemble" if model_choice_key == "__ALL__" else model_choice_key
     st.markdown(
         f'<div style="background:linear-gradient(135deg,rgba(184,134,11,0.12),'
         f'rgba(184,134,11,0.06));border:1px solid rgba(184,134,11,0.4);'
-        f'border-left:4px solid #c9a84c;border-radius:8px;'
-        f'padding:.6rem .9rem;margin:.5rem 0 .8rem;">'
-        f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:#9a7030;'
+        f'border-left:4px solid #c9a84c;border-radius:8px;padding:.6rem .9rem;margin:.5rem 0 .8rem;">'
+        f'<div style="font-family:Cinzel,serif;font-size:.58rem;color:#9a7030;'
         f'letter-spacing:1px;text-transform:uppercase;">Selected</div>'
-        f'<div style="font-family:Playfair Display,serif;font-size:.95rem;'
+        f'<div style="font-family:Playfair Display,serif;font-size:.92rem;'
         f'font-weight:700;color:#7a4f00;">{mode_label}</div>'
-        f'<div style="font-family:Cinzel,serif;font-size:.62rem;color:#4CAF50;'
+        f'<div style="font-family:Cinzel,serif;font-size:.6rem;color:#4CAF50;'
         f'margin-top:.2rem;">CV Accuracy: {acc}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.6rem 0;"></div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.25),transparent);margin:.5rem 0;"></div>', unsafe_allow_html=True)
 
     st.markdown(
         '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
@@ -975,33 +982,28 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     _c1, _c2 = st.columns(2)
-    with _c1: st.metric('CV Acc', '100%')
-    with _c2: st.metric('AUC',    '1.000')
+    with _c1: st.metric('CV Acc',    '100%')
+    with _c2: st.metric('AUC',       '1.000')
     _c3, _c4 = st.columns(2)
     with _c3: st.metric('Precision', '100%')
     with _c4: st.metric('Recall',    '98%')
 
-    st.markdown(
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.6rem 0;"></div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.25),transparent);margin:.5rem 0;"></div>', unsafe_allow_html=True)
 
     st.markdown(
         '<div style="font-family:Cinzel,serif;font-size:.62rem;color:#b8860b;'
         'letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">✦ Features</div>'
-        '<div style="font-family:EB Garamond,serif;font-size:.88rem;color:#6b4c11;line-height:1.9;">'
-        '⚜ Single-scan analysis<br>⚜ Batch processing<br>'
-        '⚜ Grad-CAM heatmap<br>⚜ Risk scoring<br>'
-        '⚜ Gold PDF report<br>⚜ CSV export'
+        '<div style="font-family:EB Garamond,serif;font-size:.88rem;color:#6b4c11;line-height:2;">'
+        '⚜ Single-scan analysis<br>'
+        '⚜ Batch processing<br>'
+        '⚜ Grad-CAM heatmap<br>'
+        '⚜ Risk scoring<br>'
+        '⚜ Gold PDF report<br>'
+        '⚜ CSV export'
         '</div>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,'
-        'rgba(184,134,11,0.25),transparent);margin:.6rem 0;"></div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.25),transparent);margin:.5rem 0;"></div>', unsafe_allow_html=True)
     st.warning("⚠️ Research/academic use only.")
     st.markdown(
         '<div style="font-family:Cinzel,serif;font-size:.55rem;color:#9a7030;'
@@ -1011,7 +1013,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-MODEL_PATH = MODEL_FILES.get(model_choice_key, list(MODEL_FILES.values())[0])
+MODEL_PATH     = MODEL_FILES.get(model_choice_key, list(MODEL_FILES.values())[0])
 RUN_ALL_MODELS = (model_choice_key == "__ALL__")
 
 
@@ -1024,10 +1026,6 @@ tab_scan, tab_batch, tab_about = st.tabs([
     '👥  About Us',
 ])
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  TAB 1 — SINGLE MRI
-# ─────────────────────────────────────────────────────────────────────────────
 with tab_scan:
 
     _run_mode = "All 3 Models + Ensemble" if RUN_ALL_MODELS else model_choice_key
@@ -1382,9 +1380,6 @@ with tab_scan:
             st.info('Run an analysis first to generate a report.')
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  TAB 2 — BATCH
-# ─────────────────────────────────────────────────────────────────────────────
 with tab_batch:
     st.markdown('<div class="sec-head">✦ Batch MRI Analysis</div>', unsafe_allow_html=True)
     st.markdown(
@@ -1529,10 +1524,6 @@ with tab_batch:
                 unsafe_allow_html=True,
             )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  TAB 3 — ABOUT  (updated from training notebook PDF, Institute at a Glance removed)
-# ─────────────────────────────────────────────────────────────────────────────
 with tab_about:
     college_logo = get_logo_b64('bvcr.jpg')
     if college_logo:
