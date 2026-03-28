@@ -2096,7 +2096,7 @@ with tab_about:
     _g1, _g2, _g3 = st.columns(3, gap='medium')
     _guide_data = [
         (_g1, 'Project Guide',       '👨\u200d🏫', '#b8860b', '#fdf3dc',
-         'Ms. N P U V S N Pavan Kumar, M.Tech',
+         'Mr. N P U V S N Pavan Kumar, M.Tech',
          ['Assistant Professor', 'Dept. of ECE', 'Deputy CoE III'],
          'Primary guide who mentored the team throughout model design, training strategy, and deployment of the NeuroScan AI system.'),
         (_g2, 'Project Coordinator', '📋', '#1a6a38', '#f0fdf4',
